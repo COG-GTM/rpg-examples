@@ -1,2 +1,4 @@
 node_modules
 external access
+java/.gradle/
+java/build/
