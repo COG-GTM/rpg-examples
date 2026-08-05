@@ -19,4 +19,4 @@ should be refined as each RPG example is migrated and tested.
 
 | RPG source | Java target | Mapping notes | Verification |
 |---|---|---|---|
-|  |  |  |  |
+| `rpg ile/basics/free_hello_world.rpgle` | `com.example.rpgexamples.basics.HelloWorld` | `dsply` → `println` | `HelloWorldTest (ConsoleCapture stdout assertion)` |
