@@ -44,3 +44,10 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 ### Report Generation
 
 1. TO DO
+
+## Java migration
+
+Phase 0 of the RPG-to-Java migration is scaffolded under [`java/`](java/).
+That directory contains the Java 21 Gradle build, shared test harness, package
+mapping, and migration traceability documentation. Existing RPG sources remain
+unchanged.
