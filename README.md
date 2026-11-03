@@ -44,3 +44,32 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 ### Report Generation
 
 1. TO DO
+
+## CLIESRV service program (client management)
+
+`rpg ile/subprocedures and functions/` contains a UI-agnostic version of the clients CRUD over file `TRCLIE` (`database-files-examples/trclie.pf`):
+
+| Source | Member | Object |
+|--------|--------|--------|
+| `cliesrv.rpgle` | QRPGLESRC/CLIESRV | NOMAIN module → `*SRVPGM CLIESRV` |
+| `cliesrv_p.rpgle` | QRPGLESRC/CLIESRV_P | `/copy` member: status codes, templates, prototypes |
+| `cliesrv.bnd` | QSRVSRC/CLIESRV | binder source, signature `CLIESRV V1` |
+| `clients_crud.rpgle` | QRPGLESRC/CLIECRUD | `*PGM CLIECRUD`, thin driver bound to CLIESRV |
+| `cl ile/build_cliesrv.clle` | | build script |
+| `sql-db2-examples/cliesrv_procedures.sql` | | SQL `CALL` wrappers over CLIECRUD |
+
+Exported procedures: `createClient`, `readClient`, `updateClient`, `deleteClient` (each returns `cliesrv_status_t`, and optionally the client image `cliesrv_client_t`), plus `dniIsValid`, `dniExists`, `clientActive`. Nothing is displayed by the service program.
+
+Status DS (63 bytes):
+
+```
+dcl-ds cliesrv_status_t qualified template;
+  success ind;          // '1' done, '0' rejected/failed
+  code    char(10);     // OK | INVDNI | DUPDNI | NOTFND | DELETED | IOERR | INVOP
+  message char(52);     // e.g. 'DNI not valid', 'DNI already exists', 'DNI not exists', 'Client marked as deleted'
+end-ds;
+```
+
+`CLIECRUD` parameters: `op char(1)` (C/R/U/D), `dni zoned(8:0)`, `name char(30)`, `status char(63)`, `client char(146)`. Called with 2-3 parameters it behaves like the original program (DSPLY messages); with all 5 it only returns the status and client image (used by Java / SQL callers).
+
+Build: upload the members above to `QRPGLESRC` / `QSRVSRC`, adjust `&LIB` in `build_cliesrv.clle` and run it (CRTRPGMOD → CRTSRVPGM → CRTBNDDIR/ADDBNDDIRE → CRTRPGMOD/CRTPGM). Then e.g. `CALL CLIECRUD PARM('C' 12345678 'ANA PEREZ')`.

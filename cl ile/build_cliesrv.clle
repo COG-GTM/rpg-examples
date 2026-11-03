@@ -1,0 +1,30 @@
+/* Builds service program CLIESRV and its driver program CLIECRUD.      */
+/* Source members expected in &LIB:                                     */
+/*   QRPGLESRC: CLIESRV (cliesrv.rpgle), CLIESRV_P (cliesrv_p.rpgle),   */
+/*              CLIECRUD (clients_crud.rpgle)                           */
+/*   QSRVSRC:   CLIESRV (cliesrv.bnd)                                   */
+/* File TRCLIE (trclie.pf) must be in the library list at runtime.      */
+ INIT:       PGM
+ VARS:       DCL        VAR(&LIB) TYPE(*CHAR) LEN(10) VALUE(PCOSTILLA)
+             DCL        VAR(&SRCF) TYPE(*CHAR) LEN(10) VALUE(QRPGLESRC)
+             DCL        VAR(&BNDF) TYPE(*CHAR) LEN(10) VALUE(QSRVSRC)
+ MODULE:     CRTRPGMOD  MODULE(&LIB/CLIESRV) +
+                          SRCFILE(&LIB/&SRCF) +
+                          SRCMBR(CLIESRV) DBGVIEW(*SOURCE)
+ SRVPGM:     CRTSRVPGM  SRVPGM(&LIB/CLIESRV) +
+                          MODULE(&LIB/CLIESRV) +
+                          EXPORT(*SRCFILE) SRCFILE(&LIB/&BNDF) +
+                          SRCMBR(CLIESRV) ACTGRP(*CALLER)
+ BNDDIR:     DLTBNDDIR  BNDDIR(&LIB/CLIESRV)
+             MONMSG     MSGID(CPF2105)
+             CRTBNDDIR  BNDDIR(&LIB/CLIESRV) +
+                          TEXT('Client management service programs')
+             ADDBNDDIRE BNDDIR(&LIB/CLIESRV) +
+                          OBJ((&LIB/CLIESRV *SRVPGM))
+ DRVMOD:     CRTRPGMOD  MODULE(&LIB/CLIECRUD) +
+                          SRCFILE(&LIB/&SRCF) +
+                          SRCMBR(CLIECRUD) DBGVIEW(*SOURCE)
+ DRVPGM:     CRTPGM     PGM(&LIB/CLIECRUD) +
+                          MODULE(&LIB/CLIECRUD) +
+                          BNDDIR(&LIB/CLIESRV) ACTGRP(CLIESRV)
+ END:        ENDPGM
