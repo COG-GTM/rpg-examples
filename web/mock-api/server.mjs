@@ -14,6 +14,7 @@ const MESSAGES = {
   NOTFND: 'DNI not exists',
   DELETED: 'Client marked as deleted',
 };
+const MAX_BODY_BYTES = 16 * 1024;
 const STATUS = { INVDNI: 400, VALIDATION: 400, NOTFND: 404, DUPDNI: 409, DELETED: 410, IOERR: 500 };
 const TITLES = { 400: 'Bad Request', 404: 'Not Found', 409: 'Conflict', 410: 'Gone', 500: 'Internal Server Error' };
 
@@ -81,7 +82,14 @@ function requireActive(dni) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (chunk) => (data += chunk));
+    req.on('data', (chunk) => {
+      data += chunk;
+      if (data.length > MAX_BODY_BYTES) {
+        req.removeAllListeners('data');
+        req.resume();
+        reject(new ApiError('VALIDATION', `request body exceeds ${MAX_BODY_BYTES} bytes`));
+      }
+    });
     req.on('end', () => {
       if (!data) return resolve({});
       try { resolve(JSON.parse(data)); } catch { reject(new ApiError('VALIDATION', 'malformed JSON body')); }
