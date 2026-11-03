@@ -4,7 +4,10 @@
 /*   CALL BLDCLIE PARM('MYLIB' '/home/me/rpg-examples')               */
 /*                                                                    */
 /* Prerequisite: physical file TRCLIE (database-files-examples/       */
-/* trclie.pf) already exists in &LIB.                                 */
+/* trclie.pf) already exists in &LIB. CLIESRV opens TRCLIE through  */
+/* the library list, so callers must have &LIB ahead of any other     */
+/* library that contains a TRCLIE file. Safe to rerun: objects are    */
+/* replaced and the CLIESRV V1.0 signature keeps callers bound.       */
              PGM        PARM(&LIB &REPO)
              DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
              DCL        VAR(&REPO) TYPE(*CHAR) LEN(200)
@@ -25,31 +28,33 @@
              CHGVAR     VAR(&TSTSRC) VALUE(&SRCDIR *TCAT +
                           '/clients_crud_test.rpgle')
 
-             ADDLIBLE   LIB(&LIB)
-             MONMSG     MSGID(CPF2103)
+             RMVLIBLE   LIB(&LIB)
+             MONMSG     MSGID(CPF2104)
+             ADDLIBLE   LIB(&LIB) POSITION(*FIRST)
 
  MODULE:     CRTRPGMOD  MODULE(&LIB/CLIESRV) SRCSTMF(&MODSRC) +
                           INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
-                          TGTCCSID(*JOB)
+                          TGTCCSID(*JOB) REPLACE(*YES)
 
  SRVPGM:     CRTSRVPGM  SRVPGM(&LIB/CLIESRV) MODULE(&LIB/CLIESRV) +
                           SRCSTMF(&BNDSRC) ACTGRP(*CALLER) +
-                          TEXT('Client CRUD service program')
+                          REPLACE(*YES) TEXT('Client CRUD service program')
              DLTMOD     MODULE(&LIB/CLIESRV)
 
  BNDDIR:     CHKOBJ     OBJ(&LIB/CLIEBND) OBJTYPE(*BNDDIR)
              MONMSG     MSGID(CPF9801) EXEC(DO)
              CRTBNDDIR  BNDDIR(&LIB/CLIEBND) TEXT('Client CRUD')
+             ENDDO
              ADDBNDDIRE BNDDIR(&LIB/CLIEBND) OBJ((*LIBL/CLIESRV +
                           *SRVPGM))
-             ENDDO
+             MONMSG     MSGID(CPF5D00)
 
  WRAPPER:    CRTBNDRPG  PGM(&LIB/CLIECRUD) SRCSTMF(&PGMSRC) +
                           INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
-                          TGTCCSID(*JOB)
+                          TGTCCSID(*JOB) REPLACE(*YES)
 
  TESTS:      CRTBNDRPG  PGM(&LIB/CLIETEST) SRCSTMF(&TSTSRC) +
                           INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
-                          TGTCCSID(*JOB)
+                          TGTCCSID(*JOB) REPLACE(*YES)
 
              ENDPGM

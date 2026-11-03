@@ -229,7 +229,14 @@ Suggested REST surface for the Angular client:
   life of the activation group. `CLIESRV` is `ACTGRP(*CALLER)`; `CLIECRUD` and `CLIETEST`
   run in `ACTGRP(*NEW)`, so the file is closed when they return — same as the legacy
   open/close per call.
-- **Locking**: reads never lock. Update/Delete lock with `chain`, re-check `CLDEUS`, then
+- **File resolution**: `TRCLIE` is unqualified and resolved through the library list, as in
+  the legacy program, so one set of objects can be promoted across test/prod libraries.
+  Callers (interactive jobs, JDBC server jobs via the connection's library list) must have
+  the target library ahead of any other library containing a `TRCLIE`; `BLDCLIE` puts
+  `&LIB` first for the build job.
+- **Locking**: reads never lock; `readClient` re-checks `CLDEUS` on the image it returns, so
+  a client deleted between validation and read returns status 40.
+  Update/Delete lock with `chain`, re-check `CLDEUS`, then
   `update ... %fields(...)` only the columns they own; a lock wait timeout (`01218`) returns
   status 50.
 - **No commitment control**: like the legacy program, writes are immediate. A SQL caller's
@@ -249,7 +256,9 @@ CALL MYLIB/CLIECRUD PARM('C' '12345678' 'JOHN DOE')
 RUNSQLSTM SRCSTMF('/home/me/rpg-examples/sql-db2-examples/clients_crud_procedures.sql') COMMIT(*NONE)
 ```
 
-(Replace `CLIELIB` in the SQL script with your library first.)
+(Replace `CLIELIB` in the SQL script with your library first.) `BLDCLIE` is rerunnable: it
+replaces the module, service program and programs, and the fixed `CLIESRV V1.0` signature
+keeps existing callers bound.
 
 ## 6. Verification — `CLIETEST`
 

@@ -114,6 +114,9 @@ dcl-proc readClient export;
   if not %found(trclie);
     return setResult(response: CLI_DNI_NOT_FOUND: MSG_DNI_NOT_FOUND);
   endif;
+  if cldeus <> *blanks;
+    return setResult(response: CLI_DELETED: MSG_DELETED);
+  endif;
 
   loadClient(response.client);
   return setResult(response: CLI_OK: MSG_READ);
