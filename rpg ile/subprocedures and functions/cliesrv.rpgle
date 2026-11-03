@@ -84,6 +84,9 @@ dcl-proc readClient export;
   if not %found(trclie);
     return newStatus(*off : CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
   endif;
+  if cldeus <> *blanks;
+    return newStatus(*off : CLIESRV_DELETED : CLIESRV_MSG_DELETED);
+  endif;
 
   client = currentImage();
   return newStatus(*on : CLIESRV_OK : 'Client read');
@@ -117,6 +120,10 @@ dcl-proc updateClient export;
   endif;
   if not %found(trclie);
     return newStatus(*off : CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
+  endif;
+  if cldeus <> *blanks;
+    unlock trclie;
+    return newStatus(*off : CLIESRV_DELETED : CLIESRV_MSG_DELETED);
   endif;
 
   clname = name;
@@ -164,6 +171,10 @@ dcl-proc deleteClient export;
   endif;
   if not %found(trclie);
     return newStatus(*off : CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
+  endif;
+  if cldeus <> *blanks;
+    unlock trclie;
+    return newStatus(*off : CLIESRV_DELETED : CLIESRV_MSG_DELETED);
   endif;
 
   cldets = %timestamp();
