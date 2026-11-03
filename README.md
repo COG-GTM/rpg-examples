@@ -44,3 +44,7 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 ### Report Generation
 
 1. TO DO
+
+## Modernization: clients REST API
+
+[`java/`](java/README.md) contains a Spring Boot REST API over the `CLIECRUD` / `CLIESRV` client module (TRCLIE): in-memory by default, or calling the RPG program through IBM Toolbox for Java (jt400).
