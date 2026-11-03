@@ -22,6 +22,14 @@ Errors are RFC 7807 problem details; `code` is the CLIESRV status code and `deta
   * future: a JPA implementation mapped directly on `TRCLIE` can implement the same interface
 * `api/` - `ClientController`, `ApiExceptionHandler`
 
+## Notes
+
+* `Jt400ClientRepository` runs `OVRDBF FILE(TRCLIE) TOFILE(<library>/TRCLIE) OVRSCOPE(*JOB)` before each
+  call so CLIESRV always opens the configured library's `TRCLIE`, whatever the job's library list.
+  `library`/`program` must be valid IBM i object names (validated at startup).
+* No authentication/authorization yet (the legacy CLIECRUD had none either). Add Spring Security in
+  front of `/clients` before exposing the API beyond a trusted network.
+
 ## Run
 
 ```bash

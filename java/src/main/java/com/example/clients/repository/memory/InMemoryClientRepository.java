@@ -35,7 +35,11 @@ public class InMemoryClientRepository implements ClientRepository {
     }
 
     InMemoryClientRepository(String auditUser, Clock clock) {
-        String user = auditUser.trim().toUpperCase(Locale.ROOT);
+        String user = auditUser == null ? "" : auditUser.trim().toUpperCase(Locale.ROOT);
+        if (user.isEmpty()) {
+            // a blank CLDEUS means "active", so a blank audit user would make deletes no-ops
+            throw new IllegalArgumentException("clients.audit-user must not be blank");
+        }
         this.currentUser = user.length() > ClientRules.USER_MAX_LENGTH
                 ? user.substring(0, ClientRules.USER_MAX_LENGTH) : user;
         this.clock = clock;

@@ -8,6 +8,7 @@ import com.ibm.as400.access.AS400;
 import com.ibm.as400.access.AS400ConnectionPool;
 import com.ibm.as400.access.AS400JDBCDataSource;
 import com.ibm.as400.access.AS400Message;
+import com.ibm.as400.access.CommandCall;
 import com.ibm.as400.access.ProgramCall;
 import com.ibm.as400.access.ProgramParameter;
 import com.ibm.as400.access.QSYSObjectPathName;
@@ -48,6 +49,9 @@ public class Jt400ClientRepository implements ClientRepository {
     private final String programPath;
 
     public Jt400ClientRepository(Jt400Properties props) {
+        if (props.library() == null || props.library().isBlank()) {
+            throw new IllegalStateException("clients.jt400.library (IBMI_LIBRARY) is required");
+        }
         this.props = props;
         this.codec = new CliesrvCodec(props.ccsid());
         this.programPath = QSYSObjectPathName.toPath(props.library(), props.program(), "PGM");
@@ -106,6 +110,12 @@ public class Jt400ClientRepository implements ClientRepository {
         AS400 system = null;
         try {
             system = pool.getConnection(props.system(), props.user(), props.password(), AS400.COMMAND);
+            // CLIESRV opens TRCLIE unqualified; pin it to the configured library in this (pooled) job
+            CommandCall ovr = new CommandCall(system, overrideCommand());
+            if (!ovr.run()) {
+                throw new ClientOperationException(ClientStatus.IO_ERROR,
+                        "OVRDBF failed: " + messages(ovr.getMessageList()));
+            }
             ProgramCall pgm = new ProgramCall(system, programPath, params);
             if (!pgm.run()) {
                 throw new ClientOperationException(ClientStatus.IO_ERROR,
@@ -127,6 +137,10 @@ public class Jt400ClientRepository implements ClientRepository {
         }
         Client client = op == 'R' ? codec.decodeClient(params[4].getOutputData()) : null;
         return new Result(status, client);
+    }
+
+    String overrideCommand() {
+        return "OVRDBF FILE(TRCLIE) TOFILE(" + props.library() + "/TRCLIE) OVRSCOPE(*JOB)";
     }
 
     private static String messages(AS400Message[] list) {

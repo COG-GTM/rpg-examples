@@ -20,6 +20,11 @@ class InMemoryClientRepositoryTest {
     private final InMemoryClientRepository repo = new InMemoryClientRepository("devin_audit_user", CLOCK);
 
     @Test
+    void blankAuditUserIsRejectedBecauseItWouldLeaveDeletedClientsActive() {
+        assertThrows(IllegalArgumentException.class, () -> new InMemoryClientRepository("  ", CLOCK));
+    }
+
+    @Test
     void dniRangeIsExclusiveOnBothEnds() {
         expect(ClientStatus.INVALID_DNI, "DNI not valid", () -> repo.create(999_999L, "x"));
         expect(ClientStatus.INVALID_DNI, "DNI not valid", () -> repo.create(100_000_000L, "x"));
