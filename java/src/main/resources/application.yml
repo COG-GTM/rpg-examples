@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: clients-api
+  mvc:
+    problemdetails:
+      enabled: true
+
+clients:
+  # memory (default) | jt400
+  repository: ${CLIENTS_REPOSITORY:memory}
+  audit-user: ${CLIENTS_AUDIT_USER:WEBAPP}
+  cors-origins: http://localhost:4200
+  # Only read when clients.repository=jt400. Never commit real values.
+  jt400:
+    host: ${IBMI_HOST:}
+    user: ${IBMI_USER:}
+    password: ${IBMI_PASSWORD:}
+    library: ${IBMI_LIBRARY:}
+    data-library: ${IBMI_DATA_LIBRARY:}
+    ccsid: ${IBMI_CCSID:37}
