@@ -32,12 +32,21 @@ function proxy(req, res) {
   req.pipe(upstream);
 }
 
-function serveStatic(req, res) {
-  const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  let file = path.join(root, urlPath);
-  if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-    file = path.join(root, 'index.html'); // SPA fallback for client-side routes
+function resolveStatic(url) {
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(new URL(url, 'http://x').pathname);
+  } catch {
+    return null;
   }
+  const file = path.resolve(root, '.' + urlPath);
+  const rel = path.relative(root, file);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return fs.existsSync(file) && fs.statSync(file).isFile() ? file : null;
+}
+
+function serveStatic(req, res) {
+  const file = resolveStatic(req.url) ?? path.join(root, 'index.html'); // SPA fallback for client-side routes
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
   fs.createReadStream(file).pipe(res);
 }
