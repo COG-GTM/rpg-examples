@@ -1,0 +1,30 @@
+/* Build CLIESRV service program and the CLIECRUD driver.                 */
+/* Source members expected in &LIB/QRPGLESRC (RPG) and &LIB/QSRVSRC (BND): */
+/*   CLIESRV    <- rpg ile/subprocedures and functions/cliesrv.rpgle       */
+/*   CLIESRV_P  <- rpg ile/subprocedures and functions/cliesrv_p.rpgle     */
+/*   CLIECRUD   <- rpg ile/subprocedures and functions/clients_crud.rpgle  */
+/*   CLIESRV    <- rpg ile/subprocedures and functions/cliesrv.bnd (QSRVSRC)*/
+/* File TRCLIE (database-files-examples/trclie.pf) must exist in &LIB.     */
+PGM        PARM(&LIB)
+DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+
+ADDLIBLE   LIB(&LIB) POSITION(*FIRST)
+MONMSG     MSGID(CPF2103)
+
+CRTRPGMOD  MODULE(&LIB/CLIESRV) SRCFILE(&LIB/QRPGLESRC) +
+             SRCMBR(CLIESRV) DBGVIEW(*SOURCE)
+
+CRTSRVPGM  SRVPGM(&LIB/CLIESRV) MODULE(&LIB/CLIESRV) +
+             SRCFILE(&LIB/QSRVSRC) SRCMBR(CLIESRV) +
+             ACTGRP(*CALLER) REPLACE(*YES)
+
+DLTBNDDIR  BNDDIR(&LIB/CLIESRV)
+MONMSG     MSGID(CPF2105)
+CRTBNDDIR  BNDDIR(&LIB/CLIESRV)
+ADDBNDDIRE BNDDIR(&LIB/CLIESRV) OBJ((&LIB/CLIESRV *SRVPGM))
+
+CRTBNDRPG  PGM(&LIB/CLIECRUD) SRCFILE(&LIB/QRPGLESRC) +
+             SRCMBR(CLIECRUD) DBGVIEW(*SOURCE) REPLACE(*YES)
+
+DLTMOD     MODULE(&LIB/CLIESRV)
+ENDPGM

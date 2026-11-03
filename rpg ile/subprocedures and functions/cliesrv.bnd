@@ -1,0 +1,11 @@
+/* CLIESRV binder source - keep the export order stable.          */
+/* Append new procedures at the end; never reorder or remove.      */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('CLIESRV V1')
+  EXPORT     SYMBOL('createClient')
+  EXPORT     SYMBOL('readClient')
+  EXPORT     SYMBOL('updateClient')
+  EXPORT     SYMBOL('deleteClient')
+  EXPORT     SYMBOL('dniIsValid')
+  EXPORT     SYMBOL('dniExists')
+  EXPORT     SYMBOL('clientActive')
+ENDPGMEXP

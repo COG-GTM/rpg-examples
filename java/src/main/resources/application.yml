@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+clients:
+  # in-memory : local development, same rules as CLIESRV, no IBM i needed (default)
+  # jt400     : call CLIECRUD/CLIESRV on IBM i via ProgramCall, list via JDBC
+  repository: ${CLIENTS_REPOSITORY:in-memory}
+  audit-user: ${CLIENTS_AUDIT_USER:WEBAPI}
+  jt400:
+    system: ${IBMI_HOST:}
+    user: ${IBMI_USER:}
+    password: ${IBMI_PASSWORD:}
+    library: ${IBMI_LIBRARY:}
+    program: CLIECRUD
+    ccsid: 37

@@ -44,3 +44,54 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 ### Report Generation
 
 1. TO DO
+
+## Client management modernization (CLIECRUD -> CLIESRV -> REST -> Angular)
+
+The `clients_crud.rpgle` example (file `TRCLIE`, record `RETRCLIE`) is being moved toward a
+modern stack in three phases. Each phase keeps the previous one working.
+
+| Phase | Where | What |
+|-------|-------|------|
+| 1. RPGLE service program | `rpg ile/subprocedures and functions/` | `cliesrv.rpgle` (module/service program `CLIESRV`), `cliesrv_p.rpgle` (`/copy` prototypes + status/client templates), `cliesrv.bnd` (binder source), `clients_crud.rpgle` (thin `CLIECRUD` driver). Build with `cl ile/build_cliesrv.clle`. |
+| 2. Java backend | `java/` | Spring Boot 3 REST API over a `ClientRepository` port. `Jt400ClientRepository` calls `CLIECRUD` -> `CLIESRV` with jt400 `ProgramCall`; `InMemoryClientRepository` re-implements the same rules for local dev. A JPA implementation directly on `TRCLIE` can replace jt400 later without touching the API. |
+| 3. Angular frontend | `web/` | Client list, detail, create and edit screens calling the REST API, with DNI validation mirroring the RPG rule. |
+
+### Phase 1 - CLIESRV
+
+* Exports `createClient`, `readClient`, `updateClient`, `deleteClient`, `dniIsValid`,
+  `dniExists`, `clientActive` (binder signature `CLIESRV V1`).
+* No `DSPLY`: every CRUD procedure returns `cliesrv_status_t`
+  (`success` ind, `code` char(10), `message` char(52)); `readClient` also fills a
+  `cliesrv_client_t` output parameter. The messages are the original DSPLY texts.
+* `CLIECRUD` keeps its original call interface (`op`, `dni`, optional `name`) and still displays
+  results when called with 2-3 parameters. Passing two more output parameters (`status`, `client`)
+  switches it to structured mode with no DSPLY; this is how Java calls it.
+* Existence/active checks use `chain(n)` so a server job never keeps record locks between calls.
+
+| Status code | Message | HTTP |
+|-------------|---------|------|
+| `OK` | `Client created` / `updated` / `deleted`, or `dni-name` on read | 200 / 201 / 204 |
+| `INVDNI` | `DNI not valid` | 400 |
+| `DUPDNI` | `DNI already exists` | 409 |
+| `NOTFND` | `DNI not exists` | 404 |
+| `DELETED` | `Client marked as deleted` | 410 |
+| `IOERR` | `Error writing/updating/deleting client` | 500 |
+| `INVOP` | `OP. Error` (driver only) | - |
+
+### Preserved business invariants
+
+These are enforced identically by CLIESRV, `InMemoryClientRepository`, the Bean Validation on
+the API (`@ValidDni`) and the Angular `dniValidator`:
+
+1. A DNI is valid only when `DNI > 999999` and `DNI < 100000000` (1,000,000 - 99,999,999).
+2. Create requires a valid DNI that does **not** exist in `TRCLIE` - including soft-deleted rows,
+   so a deleted DNI can never be re-created.
+3. Read, update and delete require a valid DNI that exists **and** is active (`CLDEUS` blank).
+4. Checks run in the original order: valid -> exists -> active; the first failure is returned.
+5. Delete is a soft delete: it stamps `CLDETS`/`CLDEUS` and the row stays in `TRCLIE`.
+6. Every write stamps audit fields: create `CLCRTS`/`CLCRUS`, update `CLUPTS`/`CLUPUS`, delete
+   `CLDETS`/`CLDEUS`, with `%timestamp()` and the job's current user (PSDS positions 254-263).
+   Through jt400 that user is the IBM i profile the API connects with.
+7. "Active" everywhere means `CLDEUS = ''`; list endpoints return active clients only.
+
+See `java/README.md` and `web/README.md` to run phases 2 and 3.
