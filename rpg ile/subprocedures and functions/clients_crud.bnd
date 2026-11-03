@@ -1,0 +1,13 @@
+/* CLIESRV - exports of the client CRUD service program.            */
+/* Append new exports at the end and keep the signature unchanged;  */
+/* removing or reordering exports requires a new PGMLVL(*CURRENT).  */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('CLIESRV V1.0')
+  EXPORT   SYMBOL(CREATECLIENT)
+  EXPORT   SYMBOL(READCLIENT)
+  EXPORT   SYMBOL(UPDATECLIENT)
+  EXPORT   SYMBOL(DELETECLIENT)
+  EXPORT   SYMBOL(CLIENTCREATESQL)
+  EXPORT   SYMBOL(CLIENTREADSQL)
+  EXPORT   SYMBOL(CLIENTUPDATESQL)
+  EXPORT   SYMBOL(CLIENTDELETESQL)
+ENDPGMEXP

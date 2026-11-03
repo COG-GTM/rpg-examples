@@ -1,0 +1,60 @@
+/* BUILD_CLIENTS_CRUD - build CLIESRV service program, CLIECRUD and   */
+/* CLIETEST from a clone of this repository on the IFS.               */
+/*                                                                    */
+/*   CALL BLDCLIE PARM('MYLIB' '/home/me/rpg-examples')               */
+/*                                                                    */
+/* Prerequisite: physical file TRCLIE (database-files-examples/       */
+/* trclie.pf) already exists in &LIB. CLIESRV opens TRCLIE through  */
+/* the library list, so callers must have &LIB ahead of any other     */
+/* library that contains a TRCLIE file. Safe to rerun: objects are    */
+/* replaced and the CLIESRV V1.0 signature keeps callers bound.       */
+             PGM        PARM(&LIB &REPO)
+             DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&REPO) TYPE(*CHAR) LEN(200)
+             DCL        VAR(&SRCDIR) TYPE(*CHAR) LEN(256)
+             DCL        VAR(&MODSRC) TYPE(*CHAR) LEN(300)
+             DCL        VAR(&BNDSRC) TYPE(*CHAR) LEN(300)
+             DCL        VAR(&PGMSRC) TYPE(*CHAR) LEN(300)
+             DCL        VAR(&TSTSRC) TYPE(*CHAR) LEN(300)
+
+             CHGVAR     VAR(&SRCDIR) VALUE(&REPO *TCAT +
+                          '/rpg ile/subprocedures and functions')
+             CHGVAR     VAR(&MODSRC) VALUE(&SRCDIR *TCAT +
+                          '/clients_crud.rpgle')
+             CHGVAR     VAR(&BNDSRC) VALUE(&SRCDIR *TCAT +
+                          '/clients_crud.bnd')
+             CHGVAR     VAR(&PGMSRC) VALUE(&SRCDIR *TCAT +
+                          '/clients_crud_pgm.rpgle')
+             CHGVAR     VAR(&TSTSRC) VALUE(&SRCDIR *TCAT +
+                          '/clients_crud_test.rpgle')
+
+             RMVLIBLE   LIB(&LIB)
+             MONMSG     MSGID(CPF2104)
+             ADDLIBLE   LIB(&LIB) POSITION(*FIRST)
+
+ MODULE:     CRTRPGMOD  MODULE(&LIB/CLIESRV) SRCSTMF(&MODSRC) +
+                          INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
+                          TGTCCSID(*JOB) REPLACE(*YES)
+
+ SRVPGM:     CRTSRVPGM  SRVPGM(&LIB/CLIESRV) MODULE(&LIB/CLIESRV) +
+                          SRCSTMF(&BNDSRC) ACTGRP(*CALLER) +
+                          REPLACE(*YES) TEXT('Client CRUD service program')
+             DLTMOD     MODULE(&LIB/CLIESRV)
+
+ BNDDIR:     CHKOBJ     OBJ(&LIB/CLIEBND) OBJTYPE(*BNDDIR)
+             MONMSG     MSGID(CPF9801) EXEC(DO)
+             CRTBNDDIR  BNDDIR(&LIB/CLIEBND) TEXT('Client CRUD')
+             ENDDO
+             ADDBNDDIRE BNDDIR(&LIB/CLIEBND) OBJ((*LIBL/CLIESRV +
+                          *SRVPGM))
+             MONMSG     MSGID(CPF5D00)
+
+ WRAPPER:    CRTBNDRPG  PGM(&LIB/CLIECRUD) SRCSTMF(&PGMSRC) +
+                          INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
+                          TGTCCSID(*JOB) REPLACE(*YES)
+
+ TESTS:      CRTBNDRPG  PGM(&LIB/CLIETEST) SRCSTMF(&TSTSRC) +
+                          INCDIR(&SRCDIR) DBGVIEW(*SOURCE) +
+                          TGTCCSID(*JOB) REPLACE(*YES)
+
+             ENDPGM

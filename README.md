@@ -6,6 +6,10 @@ This is an IBM RPG programming language examples repository
 
 If you're using SEU, keep in mind that it does not behave well when you use full free-form syntax
 
+## Modernization example
+
+`rpg ile/subprocedures and functions/clients_crud*.rpgle` shows the CLIECRUD client CRUD refactored into a service program (`CLIESRV`) with structured return parameters, a legacy-compatible wrapper, a regression driver and DB2 stored procedures. See [docs/modernization/cliecrud-functional-spec.md](docs/modernization/cliecrud-functional-spec.md).
+
 ## Some activities
 
 ### Basics and iterations
