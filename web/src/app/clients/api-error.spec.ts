@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-import { mapApiError } from './api-error';
+import { API_ERROR_MESSAGES, mapApiError, NETWORK_ERROR_MESSAGE } from './api-error';
 
 function problem(status: number, code: string, detail = 'server detail'): HttpErrorResponse {
   return new HttpErrorResponse({
@@ -34,6 +34,20 @@ describe('mapApiError', () => {
   });
 
   it('handles network failures', () => {
-    expect(mapApiError(new HttpErrorResponse({ status: 0 })).code).toBe('NETWORK');
+    const info = mapApiError(new HttpErrorResponse({ status: 0 }));
+    expect(info.code).toBe('NETWORK');
+    expect(info.message).toBe(NETWORK_ERROR_MESSAGE);
+  });
+
+  it('treats a dev-proxy 5xx without a problem code as the API being unreachable', () => {
+    expect(mapApiError(new HttpErrorResponse({ status: 500, error: '' })).message).toBe(NETWORK_ERROR_MESSAGE);
+    expect(mapApiError(new HttpErrorResponse({ status: 504, error: 'Error occurred while trying to proxy' })).code).toBe('NETWORK');
+    expect(mapApiError(new HttpErrorResponse({ status: 502, error: { title: 'Bad Gateway', status: 502 } })).code).toBe('NETWORK');
+  });
+
+  it('keeps the IOERR message for a real 500 problem from the API', () => {
+    const info = mapApiError(new HttpErrorResponse({ status: 500, error: { code: 'IOERR', detail: 'file error' } }));
+    expect(info.code).toBe('IOERR');
+    expect(info.message).toBe(API_ERROR_MESSAGES['IOERR']);
   });
 });

@@ -10,6 +10,8 @@ export const API_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   IOERR: 'The client file could not be accessed. Please try again later.',
 };
 
+export const NETWORK_ERROR_MESSAGE = 'Cannot reach the clients API. Is it running?';
+
 export interface ApiErrorInfo {
   code: string;
   status: number;
@@ -43,11 +45,12 @@ export function mapApiError(error: unknown): ApiErrorInfo {
   if (!(error instanceof HttpErrorResponse)) {
     return { code: 'UNKNOWN', status: 0, message: 'Unexpected error', field: null };
   }
-  if (error.status === 0) {
-    return { code: 'NETWORK', status: 0, message: 'Cannot reach the clients API. Is it running?', field: null };
-  }
   const problem = asProblem(error.error);
   const code = problem?.code?.trim() || 'UNKNOWN';
+  // Status 0 = browser could not connect; 5xx without a problem `code` = dev proxy could not reach the API.
+  if (error.status === 0 || (error.status >= 500 && code === 'UNKNOWN')) {
+    return { code: 'NETWORK', status: error.status, message: NETWORK_ERROR_MESSAGE, field: null };
+  }
   const message =
     API_ERROR_MESSAGES[code] ??
     problem?.detail ??
