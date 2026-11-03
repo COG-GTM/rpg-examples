@@ -10,6 +10,8 @@ export const API_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   IOERR: 'The client file could not be accessed. Please try again later.',
 };
 
+/** Set by scripts/serve-dist.mjs when its /api proxy cannot reach the API. */
+export const PROXY_UNREACHABLE_CODE = 'UPSTREAM_UNREACHABLE';
 export const NETWORK_ERROR_MESSAGE = 'Cannot reach the clients API. Is it running?';
 
 export interface ApiErrorInfo {
@@ -47,8 +49,9 @@ export function mapApiError(error: unknown): ApiErrorInfo {
   }
   const problem = asProblem(error.error);
   const code = problem?.code?.trim() || 'UNKNOWN';
-  // Status 0 = browser could not connect; 5xx without a problem `code` = dev proxy could not reach the API.
-  if (error.status === 0 || (error.status >= 500 && code === 'UNKNOWN')) {
+  // Status 0: the browser could not connect. 5xx without a JSON body or with the serve-dist marker:
+  // the dev proxy could not reach the API (a real API error always carries a problem+json body).
+  if (error.status === 0 || (error.status >= 500 && (problem === null || code === PROXY_UNREACHABLE_CODE))) {
     return { code: 'NETWORK', status: error.status, message: NETWORK_ERROR_MESSAGE, field: null };
   }
   const message =

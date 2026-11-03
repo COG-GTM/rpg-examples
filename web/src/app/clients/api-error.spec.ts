@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-import { API_ERROR_MESSAGES, mapApiError, NETWORK_ERROR_MESSAGE } from './api-error';
+import { API_ERROR_MESSAGES, mapApiError, NETWORK_ERROR_MESSAGE, PROXY_UNREACHABLE_CODE } from './api-error';
 
 function problem(status: number, code: string, detail = 'server detail'): HttpErrorResponse {
   return new HttpErrorResponse({
@@ -39,10 +39,18 @@ describe('mapApiError', () => {
     expect(info.message).toBe(NETWORK_ERROR_MESSAGE);
   });
 
-  it('treats a dev-proxy 5xx without a problem code as the API being unreachable', () => {
+  it('treats a proxy-generated 5xx as the API being unreachable', () => {
     expect(mapApiError(new HttpErrorResponse({ status: 500, error: '' })).message).toBe(NETWORK_ERROR_MESSAGE);
     expect(mapApiError(new HttpErrorResponse({ status: 504, error: 'Error occurred while trying to proxy' })).code).toBe('NETWORK');
-    expect(mapApiError(new HttpErrorResponse({ status: 502, error: { title: 'Bad Gateway', status: 502 } })).code).toBe('NETWORK');
+    expect(mapApiError(new HttpErrorResponse({ status: 502, error: { code: PROXY_UNREACHABLE_CODE } })).code).toBe('NETWORK');
+  });
+
+  it('keeps the server detail for a code-less 5xx problem from the API', () => {
+    const info = mapApiError(
+      new HttpErrorResponse({ status: 500, error: { title: 'Internal Server Error', detail: 'Database temporarily unavailable' } }),
+    );
+    expect(info.code).toBe('UNKNOWN');
+    expect(info.message).toBe('Database temporarily unavailable');
   });
 
   it('keeps the IOERR message for a real 500 problem from the API', () => {

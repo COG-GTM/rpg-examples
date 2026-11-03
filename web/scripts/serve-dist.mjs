@@ -27,7 +27,7 @@ function proxy(req, res) {
   );
   upstream.on('error', () => {
     res.writeHead(502, { 'Content-Type': 'application/problem+json' });
-    res.end(JSON.stringify({ title: 'Bad Gateway', status: 502, detail: `API not reachable at ${api.origin}` }));
+    res.end(JSON.stringify({ title: 'Bad Gateway', status: 502, detail: `API not reachable at ${api.origin}`, code: 'UPSTREAM_UNREACHABLE' }));
   });
   req.pipe(upstream);
 }
