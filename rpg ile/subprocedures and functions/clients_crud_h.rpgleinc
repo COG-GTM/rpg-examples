@@ -1,0 +1,140 @@
+**free
+// ---------------------------------------------------------------------
+// CLIECRUDH - Public interface of the CLIESRV client CRUD service program
+//
+// Include this member in any RPGLE caller:
+//   /include clients_crud_h.rpgleinc
+// and bind to service program CLIESRV (binding directory CLIEBND).
+// ---------------------------------------------------------------------
+/if defined(CLIECRUD_H)
+/eof
+/endif
+/define CLIECRUD_H
+
+// ---- Status codes (cliResponse_t.status) ----------------------------
+dcl-c CLI_OK              0;   // Operation completed
+dcl-c CLI_DNI_INVALID    10;   // DNI is not 7-8 digits
+dcl-c CLI_DNI_EXISTS     20;   // Create: DNI already on file
+dcl-c CLI_DNI_NOT_FOUND  30;   // Read/Update/Delete: DNI not on file
+dcl-c CLI_DELETED        40;   // Read/Update/Delete: client soft-deleted
+dcl-c CLI_RECORD_LOCKED  50;   // Record locked by another job
+dcl-c CLI_INVALID_OP     90;   // Wrapper only: unknown operation code
+dcl-c CLI_NAME_REQUIRED  91;   // Wrapper only: name parm missing for C/U
+dcl-c CLI_IO_ERROR       99;   // Unexpected file error
+
+// ---- Data contracts ---------------------------------------------------
+// Image of one TRCLIE record
+dcl-ds cliClient_t qualified template;
+  dni        zoned(8:0);
+  name       char(30);
+  createdTs  timestamp;
+  createdBy  char(10);
+  updatedTs  timestamp;
+  updatedBy  char(10);
+  deletedTs  timestamp;
+  deletedBy  char(10);
+  active     ind;          // *on when deletedBy is blank
+end-ds;
+
+// Structured result returned by every CRUD procedure
+dcl-ds cliResponse_t qualified template;
+  status     int(10);
+  message    varchar(80);
+  client     likeds(cliClient_t);
+end-ds;
+
+// ---- RPG-native API ---------------------------------------------------
+// All procedures return the same value placed in response.status.
+// The optional actor overrides the audit user (defaults to the job user).
+
+dcl-pr createClient int(10);
+  dni        zoned(8:0) const;
+  name       char(30) const;
+  response   likeds(cliResponse_t);
+  actor      char(10) const options(*nopass:*omit);
+end-pr;
+
+dcl-pr readClient int(10);
+  dni        zoned(8:0) const;
+  response   likeds(cliResponse_t);
+end-pr;
+
+dcl-pr updateClient int(10);
+  dni        zoned(8:0) const;
+  name       char(30) const;
+  response   likeds(cliResponse_t);
+  actor      char(10) const options(*nopass:*omit);
+end-pr;
+
+dcl-pr deleteClient int(10);
+  dni        zoned(8:0) const;
+  response   likeds(cliResponse_t);
+  actor      char(10) const options(*nopass:*omit);
+end-pr;
+
+// ---- SQL external-procedure adapters ---------------------------------
+// Flat parameter lists for CREATE PROCEDURE ... PARAMETER STYLE GENERAL
+// PROGRAM TYPE SUB (see sql-db2-examples/clients_crud_procedures.sql).
+// Output parameters, in order: status, message, name, createdTs,
+// createdBy, updatedTs, updatedBy, deletedTs, deletedBy, active.
+
+dcl-pr clientCreateSql;
+  dni        zoned(8:0) const;
+  name       char(30) const;
+  actor      char(10) const;
+  oStatus    int(10);
+  oMessage   varchar(80);
+  oName      char(30);
+  oCreatedTs timestamp;
+  oCreatedBy char(10);
+  oUpdatedTs timestamp;
+  oUpdatedBy char(10);
+  oDeletedTs timestamp;
+  oDeletedBy char(10);
+  oActive    char(1);
+end-pr;
+
+dcl-pr clientReadSql;
+  dni        zoned(8:0) const;
+  oStatus    int(10);
+  oMessage   varchar(80);
+  oName      char(30);
+  oCreatedTs timestamp;
+  oCreatedBy char(10);
+  oUpdatedTs timestamp;
+  oUpdatedBy char(10);
+  oDeletedTs timestamp;
+  oDeletedBy char(10);
+  oActive    char(1);
+end-pr;
+
+dcl-pr clientUpdateSql;
+  dni        zoned(8:0) const;
+  name       char(30) const;
+  actor      char(10) const;
+  oStatus    int(10);
+  oMessage   varchar(80);
+  oName      char(30);
+  oCreatedTs timestamp;
+  oCreatedBy char(10);
+  oUpdatedTs timestamp;
+  oUpdatedBy char(10);
+  oDeletedTs timestamp;
+  oDeletedBy char(10);
+  oActive    char(1);
+end-pr;
+
+dcl-pr clientDeleteSql;
+  dni        zoned(8:0) const;
+  actor      char(10) const;
+  oStatus    int(10);
+  oMessage   varchar(80);
+  oName      char(30);
+  oCreatedTs timestamp;
+  oCreatedBy char(10);
+  oUpdatedTs timestamp;
+  oUpdatedBy char(10);
+  oDeletedTs timestamp;
+  oDeletedBy char(10);
+  oActive    char(1);
+end-pr;
