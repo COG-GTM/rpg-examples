@@ -1,0 +1,49 @@
+<section class="card narrow">
+  <header class="card-header">
+    <h1>{{ mode() === 'edit' ? 'Edit client' : 'New client' }}</h1>
+    <a class="btn" routerLink="/clients">Cancel</a>
+  </header>
+
+  @if (loadError()) {
+    <div class="alert alert-error" role="alert">{{ loadError() }}</div>
+  } @else {
+    @if (formError()) {
+      <div class="alert alert-error" role="alert" data-testid="form-error">{{ formError() }}</div>
+    }
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field" [class.invalid]="dniError">
+        <label for="dni">DNI</label>
+        <input
+          id="dni"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          formControlName="dni"
+          [readOnly]="mode() === 'edit'"
+          placeholder="e.g. 12345678"
+        />
+        @if (dniError) {
+          <p class="field-error" data-testid="dni-error">{{ dniError }}</p>
+        } @else if (mode() === 'edit') {
+          <p class="hint">DNI cannot be changed.</p>
+        }
+      </div>
+
+      <div class="field" [class.invalid]="nameError">
+        <label for="name">Name</label>
+        <input id="name" type="text" autocomplete="off" formControlName="name" [attr.maxlength]="nameMaxLength" />
+        @if (nameError) {
+          <p class="field-error" data-testid="name-error">{{ nameError }}</p>
+        } @else {
+          <p class="hint">{{ form.controls.name.value.length }}/{{ nameMaxLength }} characters</p>
+        }
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+          {{ submitting() ? 'Saving...' : mode() === 'edit' ? 'Save changes' : 'Create client' }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

@@ -1,2 +1,6 @@
 node_modules
 external access
+web/node_modules
+web/dist
+.angular/
+web/.angular/
