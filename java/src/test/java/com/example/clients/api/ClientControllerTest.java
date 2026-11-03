@@ -123,6 +123,32 @@ class ClientControllerTest {
     }
 
     @Test
+    void invalidDniTakesPrecedenceOverMalformedBody() throws Exception {
+        problem(mvc.perform(post("/clients/999999").contentType(MediaType.APPLICATION_JSON)
+                .content("not json")), 400, "INVDNI", "DNI not valid");
+        problem(mvc.perform(put("/clients/abc").contentType(MediaType.APPLICATION_JSON)),
+                400, "INVDNI", "DNI not valid");
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void nameOutsideCcsid37RepertoireIs400Validation() throws Exception {
+        problem(mvc.perform(post("/clients/12345678").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"ANA\uD83D\uDE42\"}")), 400, "VALIDATION", "name contains unsupported characters");
+        problem(mvc.perform(put("/clients/12345678").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"\u0410\u041D\u0410\"}")), 400, "VALIDATION", "name contains unsupported characters");
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void latin1NameIsAccepted() throws Exception {
+        when(repository.create(12345678, "JOS\u00C9 MU\u00D1OZ")).thenReturn(ANA);
+        mvc.perform(post("/clients/12345678").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"JOS\u00C9 MU\u00D1OZ\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void badNameIs400Validation() throws Exception {
         problem(mvc.perform(post("/clients/12345678").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"   \"}")), 400, "VALIDATION", "name is required");

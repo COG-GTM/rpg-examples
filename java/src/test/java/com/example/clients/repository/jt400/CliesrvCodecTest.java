@@ -110,6 +110,8 @@ class CliesrvCodecTest {
         assertThat(codec.encodeName("ANA")).isEqualTo(ebcdic(String.format("%-30s", "ANA")));
         assertThat(codec.encodeName("")).isEqualTo(CliesrvCodec.blanks(30));
         assertThatThrownBy(() -> codec.encodeName("X".repeat(31))).isInstanceOf(IllegalArgumentException.class);
+        assertThat(codec.encodeName("JOS\u00C9 MU\u00D1OZ")).hasSize(30);
+        assertThatThrownBy(() -> codec.encodeName("ANA\uD83D\uDE42")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

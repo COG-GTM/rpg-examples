@@ -30,14 +30,14 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 mvn test
   "active": true }
 ```
 
-Validation: `dni` 1,000,000..99,999,999 (`dniIsValid`); `name` required, not blank, max 30 chars.
+Validation: `dni` 1,000,000..99,999,999 (`dniIsValid`); `name` required, not blank, max 30 chars, Latin-1 characters only (CLNAME is EBCDIC CCSID 37, so anything else would be substituted on IBM i).
 
 Errors are RFC 7807 `application/problem+json` with `code` (CLIESRV status) and `detail` (RPG message):
 
 | code | HTTP | detail |
 |---|---|---|
 | `INVDNI` | 400 | DNI not valid (also non-numeric `{dni}`) |
-| `VALIDATION` | 400 | name is required / name must be at most 30 characters / body missing or malformed |
+| `VALIDATION` | 400 | name is required / name must be at most 30 characters / name contains unsupported characters / body missing or malformed (a bad `{dni}` still wins with INVDNI) |
 | `NOTFND` | 404 | DNI not exists |
 | `DUPDNI` | 409 | DNI already exists (also for a soft-deleted DNI, as in the legacy program) |
 | `DELETED` | 410 | Client marked as deleted |

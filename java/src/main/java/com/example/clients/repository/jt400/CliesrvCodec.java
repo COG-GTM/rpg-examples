@@ -68,7 +68,12 @@ public class CliesrvCodec {
     }
 
     public byte[] encodeName(String value) {
-        return name.toBytes(fit(value == null ? "" : value, NAME_LENGTH, "name"));
+        String text = fit(value == null ? "" : value, NAME_LENGTH, "name");
+        byte[] bytes = name.toBytes(text);
+        if (!((String) name.toObject(bytes)).stripTrailing().equals(text.stripTrailing())) {
+            throw new IllegalArgumentException("name has characters not representable in the configured CCSID");
+        }
+        return bytes;
     }
 
     // ---- status DS --------------------------------------------------------
