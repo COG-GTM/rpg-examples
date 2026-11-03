@@ -1,0 +1,17 @@
+<header class="topbar">
+  <a class="brand" routerLink="/clients">Client Management</a>
+  <span class="muted">CLIECRUD modernization</span>
+</header>
+
+<main class="container">
+  <router-outlet />
+</main>
+
+<div class="toasts" aria-live="polite">
+  @for (toast of notify.toasts(); track toast.id) {
+    <div class="toast toast-{{ toast.kind }}" role="status">
+      <span>{{ toast.text }}</span>
+      <button type="button" class="toast-close" aria-label="Dismiss" (click)="notify.dismiss(toast.id)">×</button>
+    </div>
+  }
+</div>

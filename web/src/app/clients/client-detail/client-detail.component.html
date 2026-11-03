@@ -1,0 +1,45 @@
+<section class="card">
+  <header class="card-header">
+    <h1>Client {{ dni() }}</h1>
+    <a class="btn" routerLink="/clients">Back to list</a>
+  </header>
+
+  @if (error()) {
+    <div class="alert alert-error" role="alert">{{ error() }}</div>
+  }
+  @if (client(); as c) {
+    <p>
+      @if (c.active) {
+        <span class="badge badge-active">Active</span>
+      } @else {
+        <span class="badge badge-deleted">Deleted</span>
+      }
+    </p>
+    <dl class="details">
+      <dt>DNI</dt>
+      <dd class="mono">{{ c.dni }}</dd>
+      <dt>Name</dt>
+      <dd>{{ c.name }}</dd>
+      <dt>Created at</dt>
+      <dd>{{ c.createdAt ? (c.createdAt | date: 'yyyy-MM-dd HH:mm:ss') : '—' }}</dd>
+      <dt>Created by</dt>
+      <dd>{{ c.createdBy ?? '—' }}</dd>
+      <dt>Updated at</dt>
+      <dd>{{ c.updatedAt ? (c.updatedAt | date: 'yyyy-MM-dd HH:mm:ss') : '—' }}</dd>
+      <dt>Updated by</dt>
+      <dd>{{ c.updatedBy ?? '—' }}</dd>
+      <dt>Deleted at</dt>
+      <dd>{{ c.deletedAt ? (c.deletedAt | date: 'yyyy-MM-dd HH:mm:ss') : '—' }}</dd>
+      <dt>Deleted by</dt>
+      <dd>{{ c.deletedBy ?? '—' }}</dd>
+    </dl>
+    @if (c.active) {
+      <div class="form-actions">
+        <a class="btn btn-primary" [routerLink]="['/clients', c.dni, 'edit']">Edit</a>
+        <button type="button" class="btn btn-danger" (click)="remove(c)">Delete</button>
+      </div>
+    }
+  } @else if (!error()) {
+    <p class="muted">Loading client...</p>
+  }
+</section>

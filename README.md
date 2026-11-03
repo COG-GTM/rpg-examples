@@ -2,6 +2,11 @@
 
 This is an IBM RPG programming language examples repository
 
+## Modernized client management
+
+The `web/` directory contains an Angular UI for the `CLIECRUD` client management example
+(`rpg ile/subprocedures and functions/clients_crud.rpgle`). See [web/README.md](web/README.md).
+
 ## Notes on Free RPG
 
 If you're using SEU, keep in mind that it does not behave well when you use full free-form syntax
