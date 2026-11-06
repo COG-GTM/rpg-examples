@@ -1,0 +1,31 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #1f2937;
+  color: #f9fafb;
+}
+.brand {
+  color: inherit;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.brand span {
+  font-weight: 400;
+  opacity: 0.75;
+  margin-left: 0.5rem;
+  letter-spacing: normal;
+}
+nav a {
+  color: #d1d5db;
+  text-decoration: none;
+  margin-left: 1.25rem;
+  padding-bottom: 2px;
+}
+nav a.active,
+nav a:hover {
+  color: #fff;
+  border-bottom: 2px solid #60a5fa;
+}

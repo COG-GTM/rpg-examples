@@ -1,0 +1,13 @@
+/* Binder source for service program CLIENTSV (member QSRVSRC/CLIENTSV).   */
+/* Fixed signature: only ever append new EXPORTs at the end so programs    */
+/* already bound to CLIENTSV (CLIECRUD) keep working without a rebind.     */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('CLIENTSV V1.0')
+  EXPORT     SYMBOL('clientsvExecute')
+  EXPORT     SYMBOL('createClient')
+  EXPORT     SYMBOL('readClient')
+  EXPORT     SYMBOL('updateClient')
+  EXPORT     SYMBOL('deleteClient')
+  EXPORT     SYMBOL('dniIsValid')
+  EXPORT     SYMBOL('dniExists')
+  EXPORT     SYMBOL('clientActive')
+ENDPGMEXP
