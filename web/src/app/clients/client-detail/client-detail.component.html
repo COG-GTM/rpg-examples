@@ -1,0 +1,46 @@
+<div class="page-header">
+  <h1>Client {{ dni() }}</h1>
+  <div class="row-actions">
+    <a class="btn" routerLink="/clients">Back to list</a>
+    @if (client()?.active) {
+      <a class="btn btn-primary" [routerLink]="['/clients', dni(), 'edit']">Edit</a>
+    }
+  </div>
+</div>
+
+@if (error(); as message) {
+  <div class="alert alert-error" role="alert">{{ message }}</div>
+}
+
+@if (loading()) {
+  <p class="muted">Loading…</p>
+}
+
+@if (!loading() && client(); as c) {
+  <div class="card">
+    <div class="card-title">
+      <h2>{{ c.name }}</h2>
+      <span class="badge" [class.badge-active]="c.active" [class.badge-deleted]="!c.active">
+        {{ c.active ? 'Active' : 'Deleted' }}
+      </span>
+    </div>
+    <dl class="fields">
+      <dt>DNI</dt>
+      <dd class="mono">{{ c.dni }}</dd>
+      <dt>Name</dt>
+      <dd>{{ c.name }}</dd>
+      <dt>Created at</dt>
+      <dd class="mono">{{ c.createdAt ?? '—' }}</dd>
+      <dt>Created by</dt>
+      <dd class="mono">{{ c.createdBy ?? '—' }}</dd>
+      <dt>Updated at</dt>
+      <dd class="mono">{{ c.updatedAt ?? '—' }}</dd>
+      <dt>Updated by</dt>
+      <dd class="mono">{{ c.updatedBy ?? '—' }}</dd>
+      <dt>Deleted at</dt>
+      <dd class="mono">{{ c.deletedAt ?? '—' }}</dd>
+      <dt>Deleted by</dt>
+      <dd class="mono">{{ c.deletedBy ?? '—' }}</dd>
+    </dl>
+  </div>
+}

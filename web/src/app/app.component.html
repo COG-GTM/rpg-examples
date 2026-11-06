@@ -1,0 +1,17 @@
+<header class="topbar">
+  <a class="brand" routerLink="/clients">TRCLIE <span>Client management</span></a>
+  <nav>
+    <a routerLink="/clients" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Clients</a>
+    <a routerLink="/clients/new" routerLinkActive="active">New client</a>
+  </nav>
+</header>
+
+<main class="container">
+  @if (flash.message(); as message) {
+    <div class="alert alert-success" role="status">
+      <span>{{ message }}</span>
+      <button type="button" class="link" (click)="flash.clear()" aria-label="Dismiss">&times;</button>
+    </div>
+  }
+  <router-outlet />
+</main>
