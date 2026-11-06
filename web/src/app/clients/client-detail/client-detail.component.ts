@@ -30,7 +30,13 @@ export class ClientDetailComponent implements OnChanges {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(mapApiError(err).message);
+        const mapped = mapApiError(err);
+        this.error.set(mapped.message);
+        // CLIENTSV read rejects soft-deleted rows; show the record the list passed in, read-only.
+        const fromList = (history.state as { client?: Client } | null)?.client;
+        if (mapped.code === 'DELETED' && fromList?.dni === this.dni() && !fromList.active) {
+          this.client.set(fromList);
+        }
         this.loading.set(false);
       },
     });

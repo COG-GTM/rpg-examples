@@ -165,3 +165,6 @@ npm run test:ci           # Karma, headless Chrome
 * **Not verified here:** RPG compilation, the binder source and the jt400 call against a real
   IBM i (no IBM i was available). The jt400 byte path is tested against the emulator via
   `ClientsvCodec`; run the IBM i smoke test above before switching `CLIENTS_BACKEND=jt400`.
+* **No authentication:** the API is a demo and does not authenticate callers; with the jt400
+  backend every write runs as `IBMI_USER`. Put it behind your SSO/gateway (or add Spring
+  Security) and use a least-privilege IBM i profile before exposing it beyond localhost.

@@ -6,7 +6,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.PORT ?? 4200);
@@ -58,8 +58,10 @@ function serveStatic(req, res) {
     res.writeHead(400).end();
     return;
   }
-  let file = normalize(join(ROOT, path));
-  if (!file.startsWith(ROOT) || !existsSync(file) || statSync(file).isDirectory()) {
+  let file = resolve(ROOT, `.${path}`);
+  const rel = relative(ROOT, file);
+  const insideRoot = rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  if (!insideRoot || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(ROOT, 'index.html'); // SPA fallback for router paths
   }
   res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' });

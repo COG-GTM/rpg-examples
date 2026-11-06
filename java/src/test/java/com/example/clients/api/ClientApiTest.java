@@ -76,6 +76,10 @@ class ClientApiTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVDNI"));
         mvc.perform(json(post("/clients/7654321"), "not json"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION"));
+        mvc.perform(json(post("/clients/12"), "not json"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVDNI"));
+        mvc.perform(json(put("/clients/abc"), "not json"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVDNI"));
         mvc.perform(json(put("/clients/7654321"), "{\"name\":\"X\"}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOTFND"));
         mvc.perform(delete("/clients/31222333")).andExpect(status().isGone());

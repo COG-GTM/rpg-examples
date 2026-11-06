@@ -2,8 +2,11 @@ package com.example.clients.api;
 
 import com.example.clients.domain.ClientException;
 import com.example.clients.domain.ClientsvCode;
+import com.example.clients.domain.Dni;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -25,6 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+    private static final Pattern CLIENT_PATH = Pattern.compile("^/clients/([^/]*)/?$");
 
     @ExceptionHandler(ClientException.class)
     ResponseEntity<Object> handleClient(ClientException ex, HttpServletRequest request) {
@@ -43,6 +47,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        // Body binding runs before the controller, so re-apply the DNI-first guard order here.
+        String path = uri(request);
+        Matcher m = path == null ? null : CLIENT_PATH.matcher(path);
+        if (m != null && m.matches()) {
+            try {
+                Dni.parse(m.group(1));
+            } catch (ClientException invalid) {
+                return problem(invalid.code(), invalid.getMessage(), path);
+            }
+        }
         return problem(ClientsvCode.VALIDATION, "Request body must be JSON like {\"name\": \"...\"}", uri(request));
     }
 

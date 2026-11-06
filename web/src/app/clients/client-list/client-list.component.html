@@ -37,7 +37,7 @@
     <tbody>
       @for (client of clients(); track client.dni) {
         <tr [class.row-deleted]="!client.active">
-          <td class="mono"><a [routerLink]="['/clients', client.dni]">{{ client.dni }}</a></td>
+          <td class="mono"><a [routerLink]="['/clients', client.dni]" [state]="{ client }">{{ client.dni }}</a></td>
           <td>{{ client.name }}</td>
           <td>{{ client.createdAt ? (client.createdAt | date: 'yyyy-MM-dd HH:mm') : '—' }} <span class="muted">{{ client.createdBy ?? '' }}</span></td>
           <td>{{ client.updatedAt ? (client.updatedAt | date: 'yyyy-MM-dd HH:mm') : '—' }} <span class="muted">{{ client.updatedBy ?? '' }}</span></td>
@@ -47,7 +47,7 @@
             </span>
           </td>
           <td class="actions-col">
-            <a class="btn btn-sm" [routerLink]="['/clients', client.dni]">View</a>
+            <a class="btn btn-sm" [routerLink]="['/clients', client.dni]" [state]="{ client }">View</a>
             @if (client.active) {
               <a class="btn btn-sm" [routerLink]="['/clients', client.dni, 'edit']">Edit</a>
               <button type="button" class="btn btn-sm btn-danger" (click)="askDelete(client)">Delete</button>
