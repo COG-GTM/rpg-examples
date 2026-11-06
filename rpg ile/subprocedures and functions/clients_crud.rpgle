@@ -41,6 +41,7 @@ dcl-proc mainp;
   dcl-s structured ind;
 
   structured = (%parms() >= %parmnum(paclient));
+  wkname = *blanks;
   if %parms() >= %parmnum(paname);
     wkname = paname;
   endif;
@@ -59,6 +60,7 @@ dcl-proc mainp;
       legacyDsply(structured: 'Deleting');
       wkstatus = deleteClient(padni: wkclient);
     other;
+      clear wkclient;
       wkstatus.success = *off;
       wkstatus.code = CLIESRV_INVOP;
       wkstatus.message = CLIESRV_MSG_INVOP;

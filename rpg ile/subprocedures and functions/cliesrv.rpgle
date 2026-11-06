@@ -357,6 +357,7 @@ dcl-proc setIoError;
   end-pi;
   dcl-s detail varchar(32) inz;
 
+  clear detail;
   if fileStatus = STS_LOCKED;
     detail = ': record locked';
   endif;
