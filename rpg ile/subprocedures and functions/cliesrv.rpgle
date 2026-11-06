@@ -84,7 +84,9 @@ dcl-proc createClient export;
   on-error;
     status = ioFailure();
   endmon;
-  closeTrclie(openedHere);
+  if not closeTrclie(openedHere) and status.success;
+    status = ioFailure();
+  endif;
   return status;
 end-proc;
 
@@ -105,17 +107,21 @@ dcl-proc readClient export;
     status = checkActiveClient(dni);
     if status.success;
       chain(n) dni trclie;
-      if %found(trclie);
+      if not %found(trclie);
+        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
+      elseif cldeus <> *blanks;
+        status = rejected(CLIESRV_DELETED : CLIESRV_MSG_DELETED);
+      else;
         toClient(client);
         status = succeeded(CLIESRV_MSG_READ);
-      else;
-        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
       endif;
     endif;
   on-error;
     status = ioFailure();
   endmon;
-  closeTrclie(openedHere);
+  if not closeTrclie(openedHere) and status.success;
+    status = ioFailure();
+  endif;
   return status;
 end-proc;
 
@@ -136,22 +142,29 @@ dcl-proc updateClient export;
     openedHere = openTrclie();
     status = checkActiveClient(dni);
     if status.success;
+      // Re-check the active marker under the record lock: another job
+      // may have soft deleted the client since checkActiveClient.
       chain dni trclie;
-      if %found(trclie);
+      if not %found(trclie);
+        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
+      elseif cldeus <> *blanks;
+        unlock trclie;
+        status = rejected(CLIESRV_DELETED : CLIESRV_MSG_DELETED);
+      else;
         clname = name;
         clupts = %timestamp();
         clupus = pgmStatus.currentUser;
         update retrclie;
         toClient(client);
         status = succeeded(CLIESRV_MSG_UPDATED);
-      else;
-        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
       endif;
     endif;
   on-error;
     status = ioFailure();
   endmon;
-  closeTrclie(openedHere);
+  if not closeTrclie(openedHere) and status.success;
+    status = ioFailure();
+  endif;
   return status;
 end-proc;
 
@@ -171,21 +184,28 @@ dcl-proc deleteClient export;
     openedHere = openTrclie();
     status = checkActiveClient(dni);
     if status.success;
+      // Re-check the active marker under the record lock: another job
+      // may have soft deleted the client since checkActiveClient.
       chain dni trclie;
-      if %found(trclie);
+      if not %found(trclie);
+        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
+      elseif cldeus <> *blanks;
+        unlock trclie;
+        status = rejected(CLIESRV_DELETED : CLIESRV_MSG_DELETED);
+      else;
         cldets = %timestamp();
         cldeus = pgmStatus.currentUser;
         update retrclie;
         toClient(client);
         status = succeeded(CLIESRV_MSG_DELETED_OK);
-      else;
-        status = rejected(CLIESRV_NOTFND : CLIESRV_MSG_NOTFND);
       endif;
     endif;
   on-error;
     status = ioFailure();
   endmon;
-  closeTrclie(openedHere);
+  if not closeTrclie(openedHere) and status.success;
+    status = ioFailure();
+  endif;
   return status;
 end-proc;
 
@@ -271,14 +291,18 @@ dcl-proc openTrclie;
   return *on;
 end-proc;
 
+// Closes TRCLIE when this caller opened it; returns *off if the close
+// failed so CRUD callers can report IOERR instead of OK.
 dcl-proc closeTrclie;
-  dcl-pi *n;
+  dcl-pi *n ind;
     openedHere ind const;
   end-pi;
 
   if openedHere and %open(trclie);
     close(e) trclie;
+    return not %error();
   endif;
+  return *on;
 end-proc;
 
 dcl-proc clearFields;
