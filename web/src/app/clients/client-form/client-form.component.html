@@ -1,0 +1,70 @@
+<div class="page-header">
+  <h1>{{ isEdit ? 'Edit client ' + dni() : 'New client' }}</h1>
+  <a class="btn" [routerLink]="isEdit ? ['/clients', dni()] : ['/clients']">Cancel</a>
+</div>
+
+@if (banner(); as message) {
+  <div class="alert alert-error" role="alert" data-testid="banner">{{ message }}</div>
+}
+
+<form class="card form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="field">
+    <label for="dni">DNI</label>
+    <input
+      id="dni"
+      formControlName="dni"
+      inputmode="numeric"
+      autocomplete="off"
+      maxlength="9"
+      placeholder="e.g. 12345678"
+      [readonly]="isEdit"
+      [class.invalid]="showErrors('dni')"
+    />
+    @if (isEdit) {
+      <small class="hint">DNI is the record key and can't be changed.</small>
+    }
+    @if (showErrors('dni')) {
+      @let errors = form.controls.dni.errors;
+      <div class="field-error" data-testid="dni-error">
+        @if (errors?.['server']) {
+          {{ errors?.['server'] }}
+        } @else if (errors?.['required']) {
+          DNI is required
+        } @else if (errors?.['dni']) {
+          {{ dniRangeMessage }}
+        }
+      </div>
+    }
+  </div>
+
+  <div class="field">
+    <label for="name">Name</label>
+    <input
+      id="name"
+      formControlName="name"
+      autocomplete="off"
+      [attr.maxlength]="nameMaxLength"
+      placeholder="Client name"
+      [class.invalid]="showErrors('name')"
+    />
+    <small class="hint">{{ form.controls.name.value.length }}/{{ nameMaxLength }}</small>
+    @if (showErrors('name')) {
+      @let errors = form.controls.name.errors;
+      <div class="field-error" data-testid="name-error">
+        @if (errors?.['server']) {
+          {{ errors?.['server'] }}
+        } @else if (errors?.['required'] || errors?.['blank']) {
+          Name is required
+        } @else if (errors?.['maxlength']) {
+          Name must be at most {{ nameMaxLength }} characters
+        }
+      </div>
+    }
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" [disabled]="saving() || loading()">
+      {{ saving() ? 'Saving…' : isEdit ? 'Save changes' : 'Create client' }}
+    </button>
+  </div>
+</form>

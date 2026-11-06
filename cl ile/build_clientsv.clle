@@ -1,0 +1,41 @@
+/* BUILD_CLIENTSV - build service program CLIENTSV and wrapper CLIECRUD.     */
+/*                                                                          */
+/* Source members expected in library &LIB (upload from the repo):          */
+/*   QRPGLESRC/CLIENTSV   <- rpg ile/subprocedures and functions/clientsv.rpgle   */
+/*   QRPGLESRC/CLIENTSV_H <- rpg ile/subprocedures and functions/clientsv_h.rpgle */
+/*   QRPGLESRC/CLIECRUD   <- rpg ile/subprocedures and functions/clients_crud.rpgle */
+/*   QSRVSRC/CLIENTSV     <- rpg ile/subprocedures and functions/clientsv.bnd     */
+/*   QDDSSRC/TRCLIE       <- database-files-examples/trclie.pf                    */
+/*                                                                          */
+/* Usage: CALL BUILDCLSV PARM('MYLIB')                                      */
+             PGM        PARM(&LIB)
+             DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+
+             ADDLIBLE   LIB(&LIB)
+             MONMSG     MSGID(CPF2103)
+
+/* 0. Client file TRCLIE (skipped when it already exists)                   */
+             CHKOBJ     OBJ(&LIB/TRCLIE) OBJTYPE(*FILE)
+             MONMSG     MSGID(CPF9801) EXEC(CRTPF FILE(&LIB/TRCLIE) +
+                          SRCFILE(&LIB/QDDSSRC) SRCMBR(TRCLIE))
+
+/* 1. Service program                                                       */
+             CRTRPGMOD  MODULE(&LIB/CLIENTSV) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIENTSV) DBGVIEW(*SOURCE)
+             CRTSRVPGM  SRVPGM(&LIB/CLIENTSV) MODULE(&LIB/CLIENTSV) +
+                          EXPORT(*SRCFILE) SRCFILE(&LIB/QSRVSRC) +
+                          SRCMBR(CLIENTSV) ACTGRP(*CALLER) +
+                          TEXT('Client CRUD service (TRCLIE)')
+
+/* 2. Binding directory used by bnddir('CLIENTSV')                          */
+             DLTBNDDIR  BNDDIR(&LIB/CLIENTSV)
+             MONMSG     MSGID(CPF2105)
+             CRTBNDDIR  BNDDIR(&LIB/CLIENTSV) TEXT('Client CRUD service')
+             ADDBNDDIRE BNDDIR(&LIB/CLIENTSV) OBJ((&LIB/CLIENTSV *SRVPGM))
+
+/* 3. Backward-compatible CLIECRUD program                                  */
+             CRTBNDRPG  PGM(&LIB/CLIECRUD) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIECRUD) DBGVIEW(*SOURCE)
+
+             DLTMOD     MODULE(&LIB/CLIENTSV)
+             ENDPGM

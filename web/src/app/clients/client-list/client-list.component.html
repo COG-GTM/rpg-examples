@@ -1,0 +1,71 @@
+<div class="page-header">
+  <h1>Clients</h1>
+  <div class="row-actions">
+    <label class="toggle">
+      <input
+        type="checkbox"
+        data-testid="show-deleted"
+        [checked]="showDeleted()"
+        (change)="toggleDeleted($any($event.target).checked)"
+      />
+      Show deleted
+    </label>
+    <a class="btn btn-primary" routerLink="/clients/new">New client</a>
+  </div>
+</div>
+
+@if (error(); as message) {
+  <div class="alert alert-error" role="alert">{{ message }}</div>
+}
+
+@if (loading()) {
+  <p class="muted">Loading clients…</p>
+} @else if (clients().length === 0 && !error()) {
+  <p class="muted">{{ showDeleted() ? 'No clients.' : 'No active clients.' }}</p>
+} @else if (clients().length > 0) {
+  <table class="table">
+    <thead>
+      <tr>
+        <th>DNI</th>
+        <th>Name</th>
+        <th>Created</th>
+        <th>Updated</th>
+        <th>Status</th>
+        <th class="actions-col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (client of clients(); track client.dni) {
+        <tr [class.row-deleted]="!client.active">
+          <td class="mono"><a [routerLink]="['/clients', client.dni]" [state]="{ client }">{{ client.dni }}</a></td>
+          <td>{{ client.name }}</td>
+          <td>{{ client.createdAt ? (client.createdAt | date: 'yyyy-MM-dd HH:mm') : '—' }} <span class="muted">{{ client.createdBy ?? '' }}</span></td>
+          <td>{{ client.updatedAt ? (client.updatedAt | date: 'yyyy-MM-dd HH:mm') : '—' }} <span class="muted">{{ client.updatedBy ?? '' }}</span></td>
+          <td>
+            <span class="badge" [class.badge-active]="client.active" [class.badge-deleted]="!client.active">
+              {{ client.active ? 'Active' : 'Deleted' }}
+            </span>
+          </td>
+          <td class="actions-col">
+            <a class="btn btn-sm" [routerLink]="['/clients', client.dni]" [state]="{ client }">View</a>
+            @if (client.active) {
+              <a class="btn btn-sm" [routerLink]="['/clients', client.dni, 'edit']">Edit</a>
+              <button type="button" class="btn btn-sm btn-danger" (click)="askDelete(client)">Delete</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+@if (pendingDelete(); as client) {
+  <app-confirm-dialog
+    title="Delete client"
+    [message]="'Mark client ' + client.dni + ' (' + client.name + ') as deleted? The record is kept for audit.'"
+    confirmLabel="Delete"
+    [busy]="deleting()"
+    (confirmed)="confirmDelete()"
+    (cancelled)="cancelDelete()"
+  />
+}

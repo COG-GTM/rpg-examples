@@ -1,0 +1,25 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: clients-api
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+clients:
+  # memory (default, CLIENTSV emulation) | jt400 (IBM i service program)
+  backend: ${CLIENTS_BACKEND:memory}
+  audit-user: ${CLIENTS_AUDIT_USER:WEBAPP}
+  seed: ${CLIENTS_SEED:true}
+  allowed-origins: ${CLIENTS_CORS_ORIGINS:http://localhost:4200}
+
+# IBM i connection for CLIENTS_BACKEND=jt400. Supply via environment only; never commit values.
+ibmi:
+  host: ${IBMI_HOST:}
+  user: ${IBMI_USER:}
+  password: ${IBMI_PASSWORD:}
+  library: ${IBMI_LIBRARY:}
+  data-library: ${IBMI_DATA_LIBRARY:}
+  ccsid: ${IBMI_CCSID:37}

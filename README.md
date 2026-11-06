@@ -24,6 +24,10 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 1. Print on screen the first N prime numbers, given an arbitrary N.
 1. Given a date in YYYYMMDD format, parse it to DDMMYYYY format
 
+### Modernization example
+
+* Client management (`TRCLIE`): `CLIECRUD` refactored into service program `CLIENTSV`, consumed by a Spring Boot API (`java/`) and an Angular UI (`web/`). See [docs/clients-modernization.md](docs/clients-modernization.md).
+
 ### File managing
 
 #### Sequential access
