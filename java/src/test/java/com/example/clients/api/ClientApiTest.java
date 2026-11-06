@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -80,6 +81,8 @@ class ClientApiTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVDNI"));
         mvc.perform(json(put("/clients/abc"), "not json"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVDNI"));
+        mvc.perform(json(post(URI.create("/clients/%37%36%35%34%33%32%31")), "not json"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION"));
         mvc.perform(json(put("/clients/7654321"), "{\"name\":\"X\"}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOTFND"));
         mvc.perform(delete("/clients/31222333")).andExpect(status().isGone());
