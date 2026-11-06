@@ -143,6 +143,8 @@ class ClientControllerTest {
                 400, "INVDNI", "DNI not valid");
         expectProblem(mvc.perform(put("/clients/100000000").contentType(MediaType.APPLICATION_JSON)),
                 400, "INVDNI", "DNI not valid");
+        expectProblem(mvc.perform(post("/clients/+12345678").contentType(MediaType.APPLICATION_JSON).content("{not json")),
+                400, "INVDNI", "DNI not valid");
         verifyNoInteractions(repository);
     }
 }

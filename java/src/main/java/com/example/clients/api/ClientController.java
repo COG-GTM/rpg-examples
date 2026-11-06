@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClientController {
 
     static final String DNI = "dni";
-    private static final Pattern DECIMAL = Pattern.compile("-?\\d+");
+    static final Pattern DECIMAL = Pattern.compile("-?\\d+");
 
     private final ClientRepository repository;
 

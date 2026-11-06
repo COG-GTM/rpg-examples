@@ -99,6 +99,9 @@ public class ProblemHandler extends ResponseEntityExceptionHandler {
         if (!(vars instanceof Map<?, ?> map) || !(map.get(ClientController.DNI) instanceof String raw)) {
             return false;
         }
+        if (!ClientController.DECIMAL.matcher(raw).matches()) {
+            return true;
+        }
         try {
             return !Dni.isValid(Long.parseLong(raw));
         } catch (NumberFormatException e) {
