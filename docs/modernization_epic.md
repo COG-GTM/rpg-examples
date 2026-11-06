@@ -1,0 +1,565 @@
+# Epic: Modernize Client Management System (CLIECRUD → Java/Angular)
+
+Review copy of [`jira_epic_import.csv`](jira_epic_import.csv). Both files contain the same epic and 22 stories; edit both together.
+
+## Importing into Jira
+
+Use **Jira settings → System → External system import → CSV** (or the project's *Import issues from CSV*), file encoding UTF-8. Map columns as follows:
+
+| CSV column | Jira field |
+|---|---|
+| `Issue ID` | Issue ID (import-only key used to link stories to the epic) |
+| `Issue Type` | Issue Type (`Epic`, `Story`) |
+| `Summary` | Summary |
+| `Epic Link/Parent` | **Parent** (Jira Cloud). The value is the epic's `Issue ID` (`1`), so stories are linked to the epic created in the same import. On Jira Data Center with the legacy *Epic Link* field, import the epic first, then replace the value with the epic's issue key. |
+| `Description` | Description (Jira wiki markup: `*` bullets, `{{monospace}}`) |
+| `Acceptance Criteria` | Your Acceptance Criteria custom field, if the project has one; otherwise map it to Description or a comment |
+| `Labels` (×4) | Labels (one label per column; blank cells are ignored) |
+
+## Legacy behavior that every story preserves
+
+Source: `rpg ile/subprocedures and functions/clients_crud.rpgle` (`CLIECRUD`) and `database-files-examples/trclie.pf`.
+
+- DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+Every story's acceptance criteria end with these four items as `Legacy parity:` lines, so each Jira issue stands on its own.
+
+### Legacy message → HTTP mapping (proposed)
+
+| Legacy `dsply` | Raised by | HTTP | Endpoints |
+|---|---|---|---|
+| `DNI not valid` | `dniIsValid` = false | 400 | all |
+| `DNI already exists` | `dniExists` = true on create | 409 | POST |
+| `DNI not exists` | `dniExists` = false | 404 | GET, PUT, DELETE |
+| `Client marked as deleted` | `clientActive` = false | 410 | GET, PUT, DELETE |
+| `OP. Error` | unknown `paop` | 405 (framework) | n/a |
+
+### Field mapping
+
+| `trclie` (DDS) | Target `Client` | Notes |
+|---|---|---|
+| `CLDNI` 8S 0, key | `dni` (PK) | 1,000,000-99,999,999 |
+| `CLNAME` 30A | `name` | required on create/update, max 30 |
+| `CLCRTS` Z / `CLCRUS` 10A | `createdAt` / `createdBy` | `@CreatedDate` / `@CreatedBy` |
+| `CLUPTS` Z / `CLUPUS` 10A | `updatedAt` / `updatedBy` | `@LastModifiedDate` / `@LastModifiedBy`; null until first update |
+| `CLDETS` Z / `CLDEUS` 10A | `deletedAt` / `deletedBy` | set by soft delete; active ⇔ `deletedBy IS NULL` |
+
+Legacy sentinel `0001-01-01-00.00.00.000000` and blank users map to `NULL`.
+
+## Epic
+
+### Modernize Client Management System (CLIECRUD → Java/Angular)
+
+`Issue ID 1` · Epic · Labels: `cliecrud-modernization`, `rpg-legacy`, `spring-boot`, `angular`
+
+Replace the IBM i RPG ILE program `CLIECRUD` (`rpg ile/subprocedures and functions/clients_crud.rpgle` in COG-GTM/rpg-examples) and its keyed physical file `trclie` with a Spring Boot REST service and an Angular UI, preserving legacy business behavior exactly.
+
+Legacy summary:
+
+- Entry point `mainp` (`extpgm('CLIECRUD')`) takes `paop` (1a: C/R/U/D), `padni` (8s0) and optional `paname` (30a, `options(*nopass)`), opens `trclie` (`usropn`), dispatches to `createClient`/`readClient`/`updateClient`/`deleteClient`, then closes the file.
+- Validation helpers: `dniIsValid` (range), `dniExists` (`chain` + `%found()`), `clientActive` (`cldeus = ''`).
+- Errors and output are reported with `dsply` only (no return code to the caller).
+- Audit: `%timestamp()` plus `currentUser` (`sysds` positions 254-263) for create/update/delete; delete is soft.
+
+Target: Spring Boot (JPA, Bean Validation, Spring Security, Spring Data auditing, Flyway) + Angular, with REST errors that carry the legacy messages.
+
+Stories are grouped by phase via the `phase-N-*` labels.
+
+**Acceptance criteria**
+
+- [ ] All child stories (Phases 1-6) are Done.
+- [ ] REST API and Angular UI cover create, read, update and soft delete with the legacy guard chain and messages.
+- [ ] Contract/parity suite passes against the new service; parallel-run reconciliation shows zero unexplained differences.
+- [ ] `trclie` data is migrated with audit history intact and `CLIECRUD` is decommissioned.
+
+## Phase 1 - Discovery & Requirements
+
+### 2. Document legacy CLIECRUD behavior (paop dispatch, dsply errors, usropn file handling)
+
+`Issue ID 2` · Story · Labels: `cliecrud-modernization`, `phase-1-discovery`, `rpg-legacy` · Parent: `1`
+
+Produce a behavior spec of `CLIECRUD` from `rpg ile/subprocedures and functions/clients_crud.rpgle` that later phases test against.
+
+Cover:
+
+- `paop` dispatch in `mainp`: 'C' → `createClient(padni:paname)`, 'R' → `readClient(padni)`, 'U' → `updateClient(padni:paname)`, 'D' → `deleteClient(padni)`; any other value → `dsply 'OP. Error'`.
+- Every `dsply` message and when it fires: progress messages ('Creating', 'Reading', 'Updating', 'Deleting'), errors ('DNI not valid', 'DNI already exists', 'DNI not exists', 'Client marked as deleted', 'OP. Error') and the read output `%char(cldni) + '-' + clname`.
+- Guard order per operation: create = valid → not exists; read/update/delete = valid → exists → active.
+- Manual file lifecycle: `trclie` is declared `uf a e k disk usropn` and is opened/closed on every call in `mainp`; record locking implied by `chain` on an update-capable file.
+- Field effects per operation: create sets `cldni`, `clname`, `clcrts`, `clcrus` after `clearFields` (timestamps = `0001-01-01-00.00.00.000000`, users blank); update sets only `clname`, `clupts`, `clupus`; delete sets only `cldets`, `cldeus`.
+- Known legacy gaps: `paname` is read for 'C'/'U' without a `%parms` check (a call without it is undefined behavior); create does not check `clientActive`, so a soft-deleted DNI cannot be re-created ('DNI already exists'); no return code reaches the caller.
+
+**Acceptance criteria**
+
+- [ ] Behavior spec is committed (e.g., `docs/cliecrud-behavior.md`) and reviewed by an IBM i SME.
+- [ ] Spec contains an operation × outcome matrix (C/R/U/D × invalid DNI / not found / inactive / success / unknown op) with the exact legacy message for each cell.
+- [ ] Spec lists the field-level effects of each operation on `trclie`, including which audit fields are left untouched.
+- [ ] Legacy gaps listed above are recorded with a target decision for each (e.g., missing name → HTTP 400; re-create of a deleted DNI stays rejected).
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 3. Recover and verify trclie DDS schema from IBM i
+
+`Issue ID 3` · Story · Labels: `cliecrud-modernization`, `phase-1-discovery`, `rpg-legacy` · Parent: `1`
+
+Confirm the authoritative layout of physical file `trclie` (record format `RETRCLIE`, unique key `CLDNI`) from the IBM i system.
+
+Note: a DDS member exists in this repo at `database-files-examples/trclie.pf`; treat it as a starting point only and verify it against the production object (`DSPFFD`, `DSPFD`, `DSPDBR`), since the deployed file may have drifted.
+
+Expected fields:
+
+- `CLDNI` 8S 0 - client DNI, unique key
+- `CLNAME` 30A - client name
+- `CLCRTS` Z / `CLCRUS` 10A - create timestamp / user
+- `CLUPTS` Z / `CLUPUS` 10A - update timestamp / user
+- `CLDETS` Z / `CLDEUS` 10A - delete timestamp / user
+
+Also capture: null capability (fields appear non-null, so 'empty' is the `0001-01-01-00.00.00.000000` timestamp sentinel and blank users), CCSID of character fields, dependent logical files, triggers/constraints, row count, and the system time zone (`QTIMZON`) used by `%timestamp()`.
+
+**Acceptance criteria**
+
+- [ ] Field list with type, length, decimals, CCSID, null capability and key is committed and matches `DSPFFD` output from production.
+- [ ] Differences from `database-files-examples/trclie.pf` (if any) are listed, and the repo DDS is updated or the drift is documented.
+- [ ] Dependent logical files and other programs that use `trclie` (`DSPDBR`, `DSPPGMREF`) are listed, so cutover scope is known.
+- [ ] Sentinel conventions are documented: `0001-01-01-00.00.00.000000` = no timestamp, blank = no user; active ⇔ `CLDEUS = ''`.
+- [ ] Production row count and a count of soft-deleted rows (`CLDEUS <> ''`) are recorded for migration reconciliation.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 4. Define target JPA Client entity with soft delete (deletedAt/deletedBy)
+
+`Issue ID 4` · Story · Labels: `cliecrud-modernization`, `phase-1-discovery`, `spring-boot` · Parent: `1`
+
+Design the target `Client` JPA entity and table, with a field mapping from `trclie`.
+
+Mapping:
+
+- `CLDNI` 8S0 → `dni` (`Long`/`Integer`, `@Id`, assigned by the caller, not generated)
+- `CLNAME` 30A → `name` (`String`, max 30, trailing blanks trimmed)
+- `CLCRTS`/`CLCRUS` → `createdAt`/`createdBy`
+- `CLUPTS`/`CLUPUS` → `updatedAt`/`updatedBy` (null until the first update)
+- `CLDETS`/`CLDEUS` → `deletedAt`/`deletedBy` (null while active)
+
+Legacy sentinels (`0001-01-01-00.00.00.000000`, blank user) map to NULL. Active status is defined as `deletedBy IS NULL`, mirroring legacy `cldeus = ''`.
+
+**Acceptance criteria**
+
+- [ ] Entity design and DDL are reviewed and committed (ADR or design doc).
+- [ ] `dni` is the primary key, supplied by the client and never generated.
+- [ ] Timestamps keep microsecond precision (legacy `Z` = 26-char ISO timestamp); time zone handling is decided (UTC storage recommended).
+- [ ] Audit user columns are at least 10 chars (legacy `sysds` user is 10A); the width for longer SSO principals is decided.
+- [ ] Soft-delete semantics are defined: no physical delete path exists in the repository/service.
+- [ ] A concurrency decision is recorded (e.g., `@Version` optimistic locking vs. none), since the legacy code relies on IBM i record locks from `chain` on a `uf` file.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Phase 2 - Backend Foundation (Spring Boot)
+
+### 5. Spring Boot project setup + Flyway migration replicating trclie
+
+`Issue ID 5` · Story · Labels: `cliecrud-modernization`, `phase-2-backend-foundation`, `spring-boot` · Parent: `1`
+
+Create the Spring Boot service (Java 17+, Spring Web, Spring Data JPA, Validation, Security, Actuator) and the first Flyway migration (Liquibase acceptable) that creates the `client` table equivalent to `trclie`.
+
+The migration implements the Phase 1 entity design: PK on `dni`, `name` VARCHAR(30) NOT NULL, audit timestamp/user columns, nullable `updated_*`/`deleted_*`.
+
+**Acceptance criteria**
+
+- [ ] `./mvnw verify` (or Gradle equivalent) builds and runs tests in CI.
+- [ ] `V1__create_client.sql` creates the table; Flyway runs on startup against the target DB and in tests (Testcontainers or embedded DB).
+- [ ] `dni` has a primary-key/unique constraint (legacy `UNIQUE` + `K CLDNI`) and a CHECK constraint `dni BETWEEN 1000000 AND 99999999`.
+- [ ] `name` length is limited to 30; audit columns match the Phase 1 design.
+- [ ] No column or constraint allows a physical delete to be the normal delete path (no ON DELETE cascades relied on).
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 6. Client entity + repository (replaces chain/%found() keyed access)
+
+`Issue ID 6` · Story · Labels: `cliecrud-modernization`, `phase-2-backend-foundation`, `spring-boot` · Parent: `1`
+
+Implement `Client` (`@Entity`) and `ClientRepository extends JpaRepository<Client, Long>`.
+
+Legacy mapping: `chain pidni trclie` + `%found()` → `findById(dni)` returning `Optional<Client>`; `write retrclie` → `save` of a new entity; `update retrclie` → `save` of a managed entity.
+
+**Acceptance criteria**
+
+- [ ] `findById` returns the client for an existing DNI and `Optional.empty()` otherwise, including for soft-deleted rows (soft-deleted rows are still found, as in legacy `chain`).
+- [ ] `existsById` is available for the `dniExists` port.
+- [ ] The repository exposes no `deleteById`/`delete` usage in service code (soft delete only); an ArchUnit or unit test enforces it.
+- [ ] Repository tests (`@DataJpaTest`) cover insert, find, update, and find-after-soft-delete.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 7. Audit fields via @CreatedDate/@LastModifiedDate + Spring Security principal
+
+`Issue ID 7` · Story · Labels: `cliecrud-modernization`, `phase-2-backend-foundation`, `spring-boot` · Parent: `1`
+
+Replace legacy `%timestamp()` and `currentUser` (`sysds` positions 254-263, the 10-char job user) with Spring Data JPA auditing.
+
+- `@CreatedDate`/`@CreatedBy` → `createdAt`/`createdBy`
+- `@LastModifiedDate`/`@LastModifiedBy` → `updatedAt`/`updatedBy`
+- `AuditorAware<String>` returns the authenticated Spring Security principal name.
+- Soft delete sets `deletedAt`/`deletedBy` explicitly in the service using the same clock and `AuditorAware`.
+
+**Acceptance criteria**
+
+- [ ] Create sets `createdAt`/`createdBy` and leaves `updatedAt`/`updatedBy` NULL, matching legacy (`clupts` stays the sentinel after create) - e.g., `@EnableJpaAuditing(modifyOnCreate = false)`.
+- [ ] Update sets `updatedAt`/`updatedBy` and does not change `created*` or `deleted*`.
+- [ ] Soft delete sets `deletedAt`/`deletedBy` and does NOT change `updatedAt`/`updatedBy` (legacy `deleteClient` touches only `cldets`/`cldeus`); a test proves auditing listeners do not bump `updatedAt` on delete.
+- [ ] A unit test with a fixed `Clock` and mock principal asserts exact audit values for create, update and delete.
+- [ ] Unauthenticated requests cannot write audit rows (no anonymous auditor).
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Phase 3 - Business Logic & Validation
+
+### 8. Port dniIsValid → Bean Validation (DNI > 999999 and < 100000000)
+
+`Issue ID 8` · Story · Labels: `cliecrud-modernization`, `phase-3-business-logic`, `spring-boot` · Parent: `1`
+
+Port `dniIsValid` (`return (pidni > 999999 and pidni < 100000000)`) to a reusable constraint, e.g. `@ValidDni` composed of `@Min(1000000) @Max(99999999)`, applied to the path variable and request DTOs.
+
+**Acceptance criteria**
+
+- [ ] 999999 → invalid; 1000000 → valid; 99999999 → valid; 100000000 → invalid; 0 and negatives → invalid; non-numeric → invalid.
+- [ ] Violations produce HTTP 400 with detail "DNI not valid".
+- [ ] The DNI check runs before any repository lookup (legacy checks validity first in every operation).
+- [ ] Boundary values are covered by parameterized unit tests.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 9. Port dniExists → existsById
+
+`Issue ID 9` · Story · Labels: `cliecrud-modernization`, `phase-3-business-logic`, `spring-boot` · Parent: `1`
+
+Port `dniExists` (`chain (pidni) trclie; return %found();`) to `ClientRepository.existsById(dni)`.
+
+**Acceptance criteria**
+
+- [ ] Returns true for any stored row, active or soft-deleted (legacy does not filter on `cldeus`).
+- [ ] Create on an existing DNI (including a soft-deleted one) is rejected with HTTP 409 "DNI already exists" - no reactivation.
+- [ ] Read/update/delete on a missing DNI are rejected with HTTP 404 "DNI not exists".
+- [ ] Unit tests cover existing-active, existing-deleted and missing DNIs.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 10. Port clientActive → soft-delete guard (cldeus = '' → deletedBy IS NULL)
+
+`Issue ID 10` · Story · Labels: `cliecrud-modernization`, `phase-3-business-logic`, `spring-boot` · Parent: `1`
+
+Port `clientActive` (`chain`; `return cldeus = ''`; not found → `*off`) to a service guard `isActive(dni)` / `Client.isActive()` that returns true only when the row exists and `deletedBy IS NULL`.
+
+**Acceptance criteria**
+
+- [ ] Active is decided by `deletedBy` alone (legacy checks `cldeus`, not `cldets`).
+- [ ] Missing DNI → not active (legacy returns `*off`), but callers reach this guard only after the exists check.
+- [ ] Read, update and delete of an inactive client are rejected with HTTP 410 Gone and detail "Client marked as deleted" (status code confirmed in the Phase 1 spec).
+- [ ] Unit tests cover active, soft-deleted and missing rows.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 11. ClientService CRUD with legacy guard chain and HTTP error mapping
+
+`Issue ID 11` · Story · Labels: `cliecrud-modernization`, `phase-3-business-logic`, `spring-boot` · Parent: `1`
+
+Implement `ClientService.create/read/update/delete` reproducing the legacy guard order, with an exception handler (`@RestControllerAdvice`, RFC 7807 `ProblemDetail`) replacing `dsply` messages.
+
+Guard chain:
+
+- create: valid DNI → not exists → insert
+- read/update/delete: valid DNI → exists → active → action
+
+Error mapping (detail text = legacy `dsply` text):
+
+- DNI not valid → 400
+- DNI already exists → 409
+- DNI not exists → 404
+- Client marked as deleted → 410
+- Missing/blank name on create/update → 400
+
+Progress messages ('Creating', 'Reading', ...) become INFO log lines, not API output. The legacy 'OP. Error' branch has no REST equivalent (unsupported methods return 405).
+
+**Acceptance criteria**
+
+- [ ] Guards run in legacy order and stop at the first failure; tests prove, e.g., an invalid DNI that also doesn't exist returns "DNI not valid", and a missing, out-of-range DNI never queries the DB.
+- [ ] Error bodies are `application/problem+json` with `detail` equal to the legacy message.
+- [ ] Update changes only `name` + update audit; delete changes only delete audit; create sets name + create audit.
+- [ ] Each service method runs in one transaction (replaces per-call `open`/`close trclie`).
+- [ ] Service unit tests cover every cell of the Phase 1 operation × outcome matrix.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Phase 4 - REST API
+
+### 12. POST /clients - create client
+
+`Issue ID 12` · Story · Labels: `cliecrud-modernization`, `phase-4-rest-api`, `spring-boot` · Parent: `1`
+
+Endpoint replacing `CLIECRUD` with `paop = 'C'`. JSON body with `dni` (number) and `name` (string, max 30).
+
+**Acceptance criteria**
+
+- [ ] 201 Created with `Location: /clients/{dni}` and the client JSON (dni, name, createdAt, createdBy).
+- [ ] 400 "DNI not valid" for out-of-range DNI; 400 when `name` is missing, blank or longer than 30 chars.
+- [ ] 409 "DNI already exists" when the DNI exists, active or soft-deleted.
+- [ ] `updatedAt`/`updatedBy`/`deletedAt`/`deletedBy` are null in the stored row.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 13. GET /clients/{dni} - read client
+
+`Issue ID 13` · Story · Labels: `cliecrud-modernization`, `phase-4-rest-api`, `spring-boot` · Parent: `1`
+
+Endpoint replacing `paop = 'R'` (legacy output: `dsply` of `%char(cldni) + '-' + clname`).
+
+**Acceptance criteria**
+
+- [ ] 200 with client JSON (dni, name and audit fields) for an active client.
+- [ ] 400 "DNI not valid", 404 "DNI not exists", 410 "Client marked as deleted", checked in that order.
+- [ ] Name is returned without legacy trailing padding.
+- [ ] Read does not change any audit field.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 14. PUT /clients/{dni} - update client name
+
+`Issue ID 14` · Story · Labels: `cliecrud-modernization`, `phase-4-rest-api`, `spring-boot` · Parent: `1`
+
+Endpoint replacing `paop = 'U'`. JSON body with `name` (string, max 30). DNI comes from the path and cannot be changed.
+
+**Acceptance criteria**
+
+- [ ] 200 with the updated client; only `name`, `updatedAt` and `updatedBy` change.
+- [ ] 400 when `name` is missing, blank or longer than 30 chars (name is required for update).
+- [ ] 400 "DNI not valid", 404 "DNI not exists", 410 "Client marked as deleted" in legacy order - an inactive client cannot be updated.
+- [ ] `createdAt`/`createdBy` are unchanged.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 15. DELETE /clients/{dni} - soft delete
+
+`Issue ID 15` · Story · Labels: `cliecrud-modernization`, `phase-4-rest-api`, `spring-boot` · Parent: `1`
+
+Endpoint replacing `paop = 'D'`. Sets `deletedAt`/`deletedBy` (legacy `cldets`/`cldeus`); the row is retained. No body required (legacy delete takes only `padni`).
+
+**Acceptance criteria**
+
+- [ ] 204 No Content on success; the row still exists afterwards with `deletedAt`/`deletedBy` set and `name`, `created*`, `updated*` unchanged.
+- [ ] A second DELETE on the same DNI returns 410 "Client marked as deleted" (legacy rejects deleting an inactive client).
+- [ ] 400 "DNI not valid" and 404 "DNI not exists" in legacy order.
+- [ ] After delete, GET and PUT return 410 and POST with the same DNI returns 409.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 16. Contract tests verifying parity with legacy CLIECRUD behavior
+
+`Issue ID 16` · Story · Labels: `cliecrud-modernization`, `phase-4-rest-api`, `testing` · Parent: `1`
+
+Add contract tests (OpenAPI spec + MockMvc/RestAssured, or Spring Cloud Contract) generated from the Phase 1 operation × outcome matrix, so the REST API is proven equivalent to `CLIECRUD`.
+
+Where IBM i access is available, run the same scenarios against `CLIECRUD` (e.g., via a jt400 `ProgramCall` harness or captured job logs) and compare outcomes.
+
+**Acceptance criteria**
+
+- [ ] An OpenAPI document describes all four endpoints, request/response schemas and problem responses.
+- [ ] Every matrix cell (C/R/U/D × invalid DNI / not found / inactive / success) has a contract test with the expected status and legacy message.
+- [ ] DNI boundary cases 999999, 1000000, 99999999, 100000000 are tested on every endpoint that takes a DNI.
+- [ ] Lifecycle test: create → read → update → delete → read (410) → update (410) → delete (410) → create same DNI (409), asserting audit fields at each step.
+- [ ] Contract tests run in CI and block merges on failure.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Phase 5 - Frontend (Angular)
+
+### 17. Angular client search/read view by DNI
+
+`Issue ID 17` · Story · Labels: `cliecrud-modernization`, `phase-5-frontend`, `angular` · Parent: `1`
+
+Angular view to look up a client by DNI using `GET /clients/{dni}` (replaces calling `CLIECRUD` with 'R').
+
+**Acceptance criteria**
+
+- [ ] DNI input accepts digits only and blocks search until the value is 1000000-99999999 (7-8 digits).
+- [ ] Found client shows DNI, name and audit fields (created/updated by and at).
+- [ ] 404 shows "DNI not exists"; 410 shows "Client marked as deleted" and no edit/delete actions.
+- [ ] Component and service unit tests cover success and each error.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 18. Angular create/edit client forms with DNI validation mirroring backend
+
+`Issue ID 18` · Story · Labels: `cliecrud-modernization`, `phase-5-frontend`, `angular` · Parent: `1`
+
+Reactive forms for create (`POST /clients`) and edit (`PUT /clients/{dni}`).
+
+**Acceptance criteria**
+
+- [ ] Create form requires DNI (1000000-99999999) and name (required, max 30); the edit form shows DNI read-only and requires name.
+- [ ] Client-side validators match backend rules exactly (shared constants), with the backend as the final authority.
+- [ ] 409 on create shows "DNI already exists"; 410 on edit shows "Client marked as deleted".
+- [ ] Successful save navigates to the read view with updated data.
+- [ ] Unit tests cover validator boundaries (999999, 1000000, 99999999, 100000000) and the 30-char name limit.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 19. Angular delete flow with confirmation
+
+`Issue ID 19` · Story · Labels: `cliecrud-modernization`, `phase-5-frontend`, `angular` · Parent: `1`
+
+Delete action on the read view calling `DELETE /clients/{dni}` after a confirmation dialog.
+
+**Acceptance criteria**
+
+- [ ] The confirmation dialog names the client and states that the record is deactivated (soft delete), not erased.
+- [ ] Cancel makes no API call; confirm calls DELETE and on 204 shows the client as deleted.
+- [ ] Delete is not offered for an already-deleted client; a 410 from a stale view shows "Client marked as deleted".
+- [ ] Tests cover confirm, cancel and the 410 path.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 20. Angular API error display
+
+`Issue ID 20` · Story · Labels: `cliecrud-modernization`, `phase-5-frontend`, `angular` · Parent: `1`
+
+Shared error handling (HTTP interceptor + message component) that shows backend `ProblemDetail.detail` messages to the user.
+
+**Acceptance criteria**
+
+- [ ] 400/404/409/410 responses show the backend `detail` text verbatim (legacy messages: "DNI not valid", "DNI not exists", "DNI already exists", "Client marked as deleted").
+- [ ] Field validation errors from a 400 are shown next to the matching form field.
+- [ ] Network errors and 5xx responses without a problem body show a generic "Service unavailable" message.
+- [ ] Interceptor unit tests cover each status class.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Phase 6 - Migration & Cutover
+
+### 21. Data migration from trclie (DB2 for i) preserving audit history
+
+`Issue ID 21` · Story · Labels: `cliecrud-modernization`, `phase-6-migration-cutover`, `data-migration` · Parent: `1`
+
+One-time (repeatable) migration of all `trclie` rows, active and soft-deleted, into the `client` table.
+
+Transform rules:
+
+- `CLDNI` → `dni` as is; `CLNAME` → `name` with trailing blanks trimmed
+- `CLCRTS`/`CLUPTS`/`CLDETS`: `0001-01-01-00.00.00.000000` → NULL, otherwise converted from IBM i system time zone to the target zone
+- `CLCRUS`/`CLUPUS`/`CLDEUS`: trimmed; blank → NULL
+
+Runs read-only against DB2 for i (JDBC/jt400 or extract file).
+
+**Acceptance criteria**
+
+- [ ] Row counts match: total, active (`CLDEUS = ''`) and soft-deleted (`CLDEUS <> ''`) counts equal the Phase 1 baseline.
+- [ ] Soft-deleted rows are migrated with `deletedAt`/`deletedBy` set, so they stay inactive and their DNIs still block re-creation.
+- [ ] Audit timestamps keep microseconds; audit users keep their original IBM i profile names.
+- [ ] Rows that break invariants (DNI out of range, `CLDETS` set but `CLDEUS` blank or the reverse) are reported, not silently fixed; activity is decided by `CLDEUS`.
+- [ ] The migration is idempotent (re-run upserts by `dni`) and produces a per-row checksum report.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 22. Parallel-run reconciliation (CLIECRUD vs. new service)
+
+`Issue ID 22` · Story · Labels: `cliecrud-modernization`, `phase-6-migration-cutover`, `data-migration`, `testing` · Parent: `1`
+
+Run `CLIECRUD` and the new service side by side for an agreed period, replaying the same C/R/U/D requests to both and reconciling outcomes and data daily.
+
+**Acceptance criteria**
+
+- [ ] Every replayed request has the same outcome class on both sides (success / DNI not valid / DNI already exists / DNI not exists / Client marked as deleted).
+- [ ] Daily data diff of `trclie` vs. `client` (dni, name, active flag, null/non-null pattern of each audit field) shows zero unexplained differences.
+- [ ] Audit user values are compared through a documented IBM i profile ↔ SSO principal mapping; timestamps are compared within an agreed tolerance.
+- [ ] Exit criteria and sign-off owner for ending the parallel run are defined and met.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+### 23. Decommission CLIECRUD and trclie
+
+`Issue ID 23` · Story · Labels: `cliecrud-modernization`, `phase-6-migration-cutover`, `rpg-legacy` · Parent: `1`
+
+After sign-off, cut all callers over to the REST API and retire the RPG program and file.
+
+**Acceptance criteria**
+
+- [ ] All callers found in Phase 1 (`DSPPGMREF`/`DSPDBR`) are cut over or retired.
+- [ ] `CLIECRUD` object authority is revoked (or the object renamed) for a rollback window, then deleted; source is archived.
+- [ ] `trclie` is set read-only, kept for the agreed retention period, then archived/deleted per data-retention policy.
+- [ ] Rollback plan is documented and tested before cutover.
+- [ ] Runbook and README describe the new system as the system of record.
+- [ ] Legacy parity: DNI is valid only when 1,000,000 <= DNI <= 99,999,999 (7-8 digits; legacy `dniIsValid`: `pidni > 999999 and pidni < 100000000`).
+- [ ] Legacy parity: Delete is soft: it sets the delete timestamp/user (`cldets`/`cldeus` → `deletedAt`/`deletedBy`) and the row is retained.
+- [ ] Legacy parity: Update and delete (and read) are rejected for inactive clients (`cldeus` non-blank → `deletedBy` not null) with "Client marked as deleted".
+- [ ] Legacy parity: The name (`paname`, `options(*nopass)`) is optional at the entry point and required only for create and update; read and delete take the DNI only.
+
+## Summary
+
+| ID | Type | Phase | Summary |
+|---|---|---|---|
+| 1 | Epic | - | Modernize Client Management System (CLIECRUD → Java/Angular) |
+| 2 | Story | 1 | Document legacy CLIECRUD behavior (paop dispatch, dsply errors, usropn file handling) |
+| 3 | Story | 1 | Recover and verify trclie DDS schema from IBM i |
+| 4 | Story | 1 | Define target JPA Client entity with soft delete (deletedAt/deletedBy) |
+| 5 | Story | 2 | Spring Boot project setup + Flyway migration replicating trclie |
+| 6 | Story | 2 | Client entity + repository (replaces chain/%found() keyed access) |
+| 7 | Story | 2 | Audit fields via @CreatedDate/@LastModifiedDate + Spring Security principal |
+| 8 | Story | 3 | Port dniIsValid → Bean Validation (DNI > 999999 and < 100000000) |
+| 9 | Story | 3 | Port dniExists → existsById |
+| 10 | Story | 3 | Port clientActive → soft-delete guard (cldeus = '' → deletedBy IS NULL) |
+| 11 | Story | 3 | ClientService CRUD with legacy guard chain and HTTP error mapping |
+| 12 | Story | 4 | POST /clients - create client |
+| 13 | Story | 4 | GET /clients/{dni} - read client |
+| 14 | Story | 4 | PUT /clients/{dni} - update client name |
+| 15 | Story | 4 | DELETE /clients/{dni} - soft delete |
+| 16 | Story | 4 | Contract tests verifying parity with legacy CLIECRUD behavior |
+| 17 | Story | 5 | Angular client search/read view by DNI |
+| 18 | Story | 5 | Angular create/edit client forms with DNI validation mirroring backend |
+| 19 | Story | 5 | Angular delete flow with confirmation |
+| 20 | Story | 5 | Angular API error display |
+| 21 | Story | 6 | Data migration from trclie (DB2 for i) preserving audit history |
+| 22 | Story | 6 | Parallel-run reconciliation (CLIECRUD vs. new service) |
+| 23 | Story | 6 | Decommission CLIECRUD and trclie |
