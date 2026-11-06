@@ -2,9 +2,11 @@ package com.example.clients.api;
 
 import com.example.clients.domain.ClientErrorCode;
 import com.example.clients.domain.ClientException;
+import com.example.clients.domain.Dni;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +21,11 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -83,7 +87,23 @@ public class ProblemHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (pathDniInvalid(request)) {
+            return problem(ClientErrorCode.INVDNI, ClientErrorCode.INVDNI.legacyMessage(), uri(request));
+        }
         return problem(ClientErrorCode.VALIDATION, "Request body must be JSON like {\"name\": \"...\"}", uri(request));
+    }
+
+    /** The body is read before method validation runs, so re-check the path DNI to keep INVDNI first. */
+    private static boolean pathDniInvalid(WebRequest request) {
+        Object vars = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+        if (!(vars instanceof Map<?, ?> map) || !(map.get(ClientController.DNI) instanceof String raw)) {
+            return false;
+        }
+        try {
+            return !Dni.isValid(Long.parseLong(raw));
+        } catch (NumberFormatException e) {
+            return true;
+        }
     }
 
     private static String describe(MessageSourceResolvable error) {

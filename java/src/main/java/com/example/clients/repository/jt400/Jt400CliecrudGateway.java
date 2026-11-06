@@ -70,10 +70,16 @@ public class Jt400CliecrudGateway implements CliecrudGateway {
         }
     }
 
-    /** CLIECRUD opens TRCLIE unqualified, so the data library must be on the job's library list. */
+    /**
+     * CLIECRUD opens TRCLIE unqualified, so the data library must come first on the job's library list:
+     * an earlier library holding another TRCLIE would otherwise receive the writes while the JDBC list
+     * reads the configured one. RMVLIBLE first because ADDLIBLE leaves an existing entry where it is.
+     */
     private void addDataLibrary(AS400 system) throws Exception {
+        String lib = props.effectiveDataLibrary().toUpperCase();
         CommandCall cmd = new CommandCall(system);
-        if (!cmd.run("ADDLIBLE LIB(" + props.effectiveDataLibrary().toUpperCase() + ")")) {
+        cmd.run("RMVLIBLE LIB(" + lib + ")");
+        if (!cmd.run("ADDLIBLE LIB(" + lib + ") POSITION(*FIRST)")) {
             AS400Message[] msgs = cmd.getMessageList();
             boolean alreadyThere = Arrays.stream(msgs).anyMatch(m -> ALREADY_IN_LIBL.equals(m.getID()));
             if (!alreadyThere) {

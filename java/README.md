@@ -38,7 +38,7 @@ IBMI_LIBRARY=CLIELIB IBMI_DATA_LIBRARY=CLIEDTA mvn spring-boot:run
 
 How the jt400 path works:
 
-- **Create/read/update/delete**: `CommandCall` runs `ADDLIBLE <IBMI_DATA_LIBRARY>`, because CLIECRUD opens `TRCLIE` unqualified (CPF2103 "already in list" is ignored). Then `ProgramCall` calls `<IBMI_LIBRARY>/CLIECRUD` in 5-parm structured mode: `op char(1)`, `dni zoned(8:0)`, `name char(30)`, `status char(63)` out, `client char(146)` out.
+- **Create/read/update/delete**: `CommandCall` runs `RMVLIBLE` + `ADDLIBLE <IBMI_DATA_LIBRARY> POSITION(*FIRST)`, because CLIECRUD opens `TRCLIE` unqualified. Putting the data library first keeps CRUD and the JDBC list on the same file. Then `ProgramCall` calls `<IBMI_LIBRARY>/CLIECRUD` in 5-parm structured mode: `op char(1)`, `dni zoned(8:0)`, `name char(30)`, `status char(63)` out, `client char(146)` out.
 - **Decoding**: the status and client buffers are decoded with `AS400Text` (CCSID `IBMI_CCSID`) and `AS400ZonedDecimal` in `CliesrvCodec`. Non-OK status codes become problem responses, with the CLIESRV message as `detail`.
 - **List**: the list uses JDBC (`AS400JDBCDataSource`, system naming, library list = data library):
   `SELECT CLDNI, CLNAME, CHAR(CLCRTS), CLCRUS, CHAR(CLUPTS), CLUPUS, CHAR(CLDETS), CLDEUS FROM TRCLIE WHERE CLDEUS = '' ORDER BY CLDNI`.

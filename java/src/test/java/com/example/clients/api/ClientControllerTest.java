@@ -136,4 +136,13 @@ class ClientControllerTest {
                 .andExpect(jsonPath("$.detail").value(containsString("name")));
         verifyNoInteractions(repository);
     }
+
+    @Test
+    void invdniTakesPrecedenceOverMissingOrMalformedBody() throws Exception {
+        expectProblem(mvc.perform(post("/clients/999999").contentType(MediaType.APPLICATION_JSON).content("{not json")),
+                400, "INVDNI", "DNI not valid");
+        expectProblem(mvc.perform(put("/clients/100000000").contentType(MediaType.APPLICATION_JSON)),
+                400, "INVDNI", "DNI not valid");
+        verifyNoInteractions(repository);
+    }
 }
