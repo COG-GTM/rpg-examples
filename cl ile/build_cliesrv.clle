@@ -1,0 +1,43 @@
+/* ----------------------------------------------------------------- */
+/* BUILD_CLIESRV - builds *SRVPGM CLIESRV and *PGM CLIECRUD          */
+/*                                                                   */
+/* Source members expected in &LIB:                                  */
+/*   QDDSSRC  TRCLIE     database-files-examples/trclie.pf           */
+/*   QRPGLESRC CLIESRV_P rpg ile/.../cliesrv_p.rpgle (/copy member)  */
+/*   QRPGLESRC CLIESRV   rpg ile/.../cliesrv.rpgle                   */
+/*   QRPGLESRC CLIECRUD  rpg ile/.../clients_crud.rpgle              */
+/*   QSRVSRC  CLIESRV    rpg ile/.../cliesrv.bnd                     */
+/*                                                                   */
+/* CALL BUILDCLIE PARM('MYLIB')                                      */
+/* ----------------------------------------------------------------- */
+ INIT:       PGM        PARM(&LIB)
+             DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+
+ LIBL:       ADDLIBLE   LIB(&LIB)
+             MONMSG     MSGID(CPF2103)
+
+ FILE:       CRTPF      FILE(&LIB/TRCLIE) SRCFILE(&LIB/QDDSSRC) +
+                          SRCMBR(TRCLIE)
+             MONMSG     MSGID(CPF7302)
+
+ SRVMOD:     CRTRPGMOD  MODULE(&LIB/CLIESRV) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIESRV) DBGVIEW(*SOURCE)
+
+ SRVPGM:     CRTSRVPGM  SRVPGM(&LIB/CLIESRV) MODULE(&LIB/CLIESRV) +
+                          EXPORT(*SRCFILE) SRCFILE(&LIB/QSRVSRC) +
+                          SRCMBR(CLIESRV) ACTGRP(*CALLER)
+
+ BNDDIR:     DLTBNDDIR  BNDDIR(&LIB/CLIESRV)
+             MONMSG     MSGID(CPF2105)
+             CRTBNDDIR  BNDDIR(&LIB/CLIESRV) +
+                          TEXT('Client service program CLIESRV')
+             ADDBNDDIRE BNDDIR(&LIB/CLIESRV) OBJ((&LIB/CLIESRV +
+                          *SRVPGM))
+
+ PGMMOD:     CRTRPGMOD  MODULE(&LIB/CLIECRUD) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIECRUD) DBGVIEW(*SOURCE)
+
+ PGM:        CRTPGM     PGM(&LIB/CLIECRUD) MODULE(&LIB/CLIECRUD) +
+                          BNDDIR(&LIB/CLIESRV) ACTGRP(QILE)
+
+ END:        ENDPGM

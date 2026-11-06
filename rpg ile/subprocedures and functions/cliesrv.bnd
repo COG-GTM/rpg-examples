@@ -1,0 +1,13 @@
+/* ----------------------------------------------------------------- */
+/* CLIESRV binder source (QSRVSRC,CLIESRV)                           */
+/* Fixed signature: only append new exports at the end of the list.  */
+/* ----------------------------------------------------------------- */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('CLIESRV V1')
+  EXPORT     SYMBOL('createClient')
+  EXPORT     SYMBOL('readClient')
+  EXPORT     SYMBOL('updateClient')
+  EXPORT     SYMBOL('deleteClient')
+  EXPORT     SYMBOL('dniIsValid')
+  EXPORT     SYMBOL('dniExists')
+  EXPORT     SYMBOL('clientActive')
+ENDPGMEXP
