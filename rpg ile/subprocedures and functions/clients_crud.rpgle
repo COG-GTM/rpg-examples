@@ -1,192 +1,98 @@
-     H option(*nodebugio) dftactgrp(*no) main(mainp)
-     F*--------------- FILES --------------------------------
-     Ftrclie    uf a e           k disk    usropn
-     D*--------------- PROTOTYPES ---------------------------
-     D* Program entry point
-     Dmainp            pr                  extpgm('CLIECRUD')
-     D                                1a
-     D                                8s 0
-     D                               30a   options(*nopass)
-     D* Create procedure
-     D createClient    pr
-     D                                8s 0
-     D                               30a
-     D* Read client procedure
-     D readClient      pr
-     D                                8s 0
-     D* Update procedure
-     D updateClient    pr
-     D                                8s 0
-     D                               30a
-     D* Delete client procedure
-     D deleteClient    pr
-     D                                8s 0
-     D* Clear file fields procedure
-     D clearFields     pr
-     D*--------------- FUNCTIONS ----------------------------
-     D* Validate DNI
-     D dniIsValid      pr              n
-     D                                8s 0
-     D* DNI already exists in DB
-     D dniExists       pr              n
-     D                                8s 0
-     D* Client is still active
-     D clientActive    pr              n
-     D                                8s 0
-     D*--------------- GLOBALS ------------------------------
-     D sysds          sds
-     D currentUser           254    263
-     P*------------------------------------------------------
-     Pmainp            b
-     D                 pi
-     D paop                           1a
-     D padni                          8s 0
-     D paname                        30a   options(*nopass)
-     D*
-       open trclie;
-       select;
-        when paop = 'C';
-         createClient(padni:paname);
-        when paop = 'R';
-         readClient(padni);
-        when paop = 'U';
-         updateClient(padni:paname);
-        when paop = 'D';
-         deleteClient(padni);
-        other;
-         dsply 'OP. Error';
-       endsl;
-       close trclie;
-       return;
-     Pmainp            e
-     P*
-     PcreateClient     b
-     D                 pi
-     D pidni                          8s 0
-     D piname                        30a
-       dsply 'Creating';
-       if not dniIsValid(pidni);
-        dsply 'DNI not valid';
-        return;
-       endif;
-       if dniExists(pidni);
-        dsply 'DNI already exists';
-        return;
-       endif;
-       clearFields();
-       cldni = pidni;
-       clname = piname;
-       clcrts = %timestamp();
-       clcrus = currentUser;
-       write retrclie;
-     PcreateClient     e
-     P*
-     PreadClient       b
-     D                 pi
-     D pidni                          8s 0
-     D zzmsg           s             52a
-       dsply 'Reading';
-       if not dniIsValid(pidni);
-        dsply 'DNI not valid';
-        return;
-       endif;
-       if not dniExists(pidni);
-        dsply 'DNI not exists';
-        return;
-       endif;
-       if not clientActive(pidni);
-        dsply 'Client marked as deleted';
-        return;
-       endif;
-       chain pidni trclie;
-       if %found();
-        zzmsg = %char(cldni) + '-' + clname;
-        dsply zzmsg;
-       endif;
-     PreadClient       e
-     P*
-     PupdateClient     b
-     D                 pi
-     D pidni                          8s 0
-     D piname                        30a
-       dsply 'Updating';
-       if not dniIsValid(pidni);
-        dsply 'DNI not valid';
-        return;
-       endif;
-       if not dniExists(pidni);
-        dsply 'DNI not exists';
-        return;
-       endif;
-       if not clientActive(pidni);
-        dsply 'Client marked as deleted';
-        return;
-       endif;
-       chain pidni trclie;
-       if %found();
-        clname = piname;
-        clupts = %timestamp();
-        clupus = currentUser;
-        update retrclie;
-       endif;
-     PupdateClient     e
-     P*
-     PdeleteClient     b
-     D                 pi
-     D pidni                          8s 0
-       dsply 'Deleting';
-       if not dniIsValid(pidni);
-        dsply 'DNI not valid';
-        return;
-       endif;
-       if not dniExists(pidni);
-        dsply 'DNI not exists';
-        return;
-       endif;
-       if not clientActive(pidni);
-        dsply 'Client marked as deleted';
-        return;
-       endif;
-       chain pidni trclie;
-       if %found();
-        cldets = %timestamp();
-        cldeus = currentUser;
-        update retrclie;
-       endif;
-     PdeleteClient     e
-     P*
-     PclearFields      b
-       cldni = 0;
-       clname = '';
-       clcrts = z'0001-01-01-00.00.00.000000';
-       clcrus = '';
-       clupts = z'0001-01-01-00.00.00.000000';
-       clupus = '';
-       cldets = z'0001-01-01-00.00.00.000000';
-       cldeus = '';
-     PclearFields      e
-     P*
-     PdniIsValid       b
-     D                 pi              n
-     D pidni                          8s 0
-       return (pidni > 999999 and pidni < 100000000);
-     PdniIsValid       e
-     P*
-     PdniExists        b
-     D                 pi              n
-     D pidni                          8s 0
-       chain (pidni) trclie;
-       return %found();  // *on or *off
-     PdniExists        e
-     P*
-     PclientActive     b
-     D                 pi              n
-     D pidni                          8s 0
-       chain pidni trclie;
-       if %found();
-         return cldeus = '';
-       else;
-         return *off;
-       endif;
-     PclientActive     e
-     P*
+**free
+// ---------------------------------------------------------------------------
+// CLIECRUD - thin driver over service program CLIESRV.
+//
+// Legacy mode (2-3 parms):  CALL CLIECRUD PARM(op dni [name])
+//   Same console (DSPLY) output as the original CLIECRUD.
+// Structured mode (5 parms): CALL CLIECRUD PARM(op dni name status client)
+//   status char(63) = cliesrv_status_t, client char(146) = cliesrv_client_t.
+//   No DSPLY. An unknown op returns INVOP.
+// ---------------------------------------------------------------------------
+ctl-opt dftactgrp(*no) main(mainp) option(*srcstmt:*nodebugio)
+        bnddir('CLIESRV');
+
+/copy QRPGLESRC,CLIESRV_P
+
+dcl-c OP_CREATE 'C';
+dcl-c OP_READ 'R';
+dcl-c OP_UPDATE 'U';
+dcl-c OP_DELETE 'D';
+
+dcl-pr mainp extpgm('CLIECRUD');
+  op char(1);
+  dni zoned(8:0);
+  name char(30) options(*nopass);
+  status char(63) options(*nopass);
+  client char(146) options(*nopass);
+end-pr;
+
+// ---------------------------------------------------------------------------
+dcl-proc mainp;
+  dcl-pi *n;
+    paop char(1);
+    padni zoned(8:0);
+    paname char(30) options(*nopass);
+    pastatus char(63) options(*nopass);
+    paclient char(146) options(*nopass);
+  end-pi;
+  dcl-ds wkstatus likeds(cliesrv_status_t) inz;
+  dcl-ds wkclient likeds(cliesrv_client_t) inz;
+  dcl-s wkname char(30);
+  dcl-s structured ind;
+
+  structured = (%parms() >= %parmnum(paclient));
+  wkname = *blanks;
+  if %parms() >= %parmnum(paname);
+    wkname = paname;
+  endif;
+
+  select;
+    when paop = OP_CREATE;
+      legacyDsply(structured: 'Creating');
+      wkstatus = createClient(padni: wkname: wkclient);
+    when paop = OP_READ;
+      legacyDsply(structured: 'Reading');
+      wkstatus = readClient(padni: wkclient);
+    when paop = OP_UPDATE;
+      legacyDsply(structured: 'Updating');
+      wkstatus = updateClient(padni: wkname: wkclient);
+    when paop = OP_DELETE;
+      legacyDsply(structured: 'Deleting');
+      wkstatus = deleteClient(padni: wkclient);
+    other;
+      clear wkclient;
+      wkstatus.success = *off;
+      wkstatus.code = CLIESRV_INVOP;
+      wkstatus.message = CLIESRV_MSG_INVOP;
+  endsl;
+
+  if structured;
+    pastatus = wkstatus;
+    paclient = wkclient;
+    return;
+  endif;
+
+  // Legacy console output
+  if not wkstatus.success;
+    legacyDsply(structured: wkstatus.message);
+  elseif paop = OP_READ;
+    legacyDsply(structured: %char(wkclient.dni) + '-' + wkclient.name);
+  endif;
+  return;
+end-proc;
+
+// ---------------------------------------------------------------------------
+// DSPLY is used only here, and only in legacy (2-3 parm) mode.
+dcl-proc legacyDsply;
+  dcl-pi *n;
+    structured ind const;
+    text varchar(52) const;
+  end-pi;
+  dcl-s zzmsg char(52);
+
+  if structured;
+    return;
+  endif;
+  zzmsg = text;
+  dsply zzmsg;
+end-proc;

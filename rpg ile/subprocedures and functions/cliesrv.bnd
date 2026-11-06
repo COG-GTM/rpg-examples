@@ -1,0 +1,12 @@
+/* Binder source for service program CLIESRV (source member QSRVSRC/CLIESRV) */
+/* Explicit signature: only append new exports at the end and keep the       */
+/* signature for compatible changes, so bound callers (CLIECRUD) keep working. */
+STRPGMEXP  PGMLVL(*CURRENT) SIGNATURE('CLIESRV V1.0')
+  EXPORT     SYMBOL('createClient')
+  EXPORT     SYMBOL('readClient')
+  EXPORT     SYMBOL('updateClient')
+  EXPORT     SYMBOL('deleteClient')
+  EXPORT     SYMBOL('dniIsValid')
+  EXPORT     SYMBOL('dniExists')
+  EXPORT     SYMBOL('clientActive')
+ENDPGMEXP

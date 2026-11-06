@@ -1,0 +1,36 @@
+/* BUILD_CLIESRV - build service program CLIESRV and driver CLIECRUD.        */
+/*                                                                          */
+/* Expected source members in library &LIB:                                 */
+/*   QRPGLESRC/CLIESRV    <- rpg ile/subprocedures and functions/cliesrv.rpgle   */
+/*   QRPGLESRC/CLIESRV_P  <- rpg ile/subprocedures and functions/cliesrv_p.rpgle */
+/*   QRPGLESRC/CLIECRUD   <- rpg ile/subprocedures and functions/clients_crud.rpgle */
+/*   QSRVSRC/CLIESRV      <- rpg ile/subprocedures and functions/cliesrv.bnd     */
+/* File TRCLIE (database-files-examples/trclie.pf) must be in the library   */
+/* list at compile time.                                                    */
+/*                                                                          */
+/* Usage: CALL BUILDCLIE PARM('MYLIB')                                      */
+             PGM        PARM(&LIB)
+             DCL        VAR(&LIB) TYPE(*CHAR) LEN(10)
+
+/* 1. Service program module and *SRVPGM                                    */
+             CRTRPGMOD  MODULE(&LIB/CLIESRV) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIESRV) DBGVIEW(*SOURCE)
+             CRTSRVPGM  SRVPGM(&LIB/CLIESRV) MODULE(&LIB/CLIESRV) +
+                          EXPORT(*SRCFILE) SRCFILE(&LIB/QSRVSRC) +
+                          SRCMBR(CLIESRV) ACTGRP(*CALLER)
+
+/* 2. Binding directory                                                     */
+             DLTBNDDIR  BNDDIR(&LIB/CLIESRV)
+             MONMSG     MSGID(CPF2105)
+             CRTBNDDIR  BNDDIR(&LIB/CLIESRV) TEXT('Client CRUD service')
+             ADDBNDDIRE BNDDIR(&LIB/CLIESRV) OBJ((&LIB/CLIESRV *SRVPGM))
+
+/* 3. Driver program CLIECRUD bound to CLIESRV                              */
+             CRTRPGMOD  MODULE(&LIB/CLIECRUD) SRCFILE(&LIB/QRPGLESRC) +
+                          SRCMBR(CLIECRUD) DBGVIEW(*SOURCE)
+             CRTPGM     PGM(&LIB/CLIECRUD) MODULE(&LIB/CLIECRUD) +
+                          BNDDIR(&LIB/CLIESRV) ACTGRP(QILE)
+
+             DLTMOD     MODULE(&LIB/CLIESRV)
+             DLTMOD     MODULE(&LIB/CLIECRUD)
+             ENDPGM
