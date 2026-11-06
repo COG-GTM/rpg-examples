@@ -1,0 +1,20 @@
+{
+  "indent": 2,
+  "BlankStructNamesCheck": true,
+  "QualifiedCheck": true,
+  "PrototypeCheck": true,
+  "NoGlobalSubroutines": true,
+  "NoLocalSubroutines": true,
+  "NoUnreferenced": true,
+  "IncorrectVariableCase": true,
+  "RequireOtherBlock": true,
+  "RequiresParameter": true,
+  "UselessOperationCheck": true,
+  "StringLiteralDupe": true,
+  "NoExtProgramVariable": true,
+  "NoOCCURS": true,
+  "NoCTDATA": true,
+  "SpecificCasing": [{"operation": "*DECLARE", "expected": "*LOWER"}],
+  "DirectiveCase": "lower",
+  "CollectReferences": true
+}
