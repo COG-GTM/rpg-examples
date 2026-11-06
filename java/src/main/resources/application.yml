@@ -1,0 +1,21 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: clients-api
+
+clients:
+  # memory (default) | jt400 | jpa (reserved, not implemented)
+  repository: ${CLIENTS_REPOSITORY:memory}
+  audit-user: ${CLIENTS_AUDIT_USER:WEBAPP}
+  allowed-origins: ${CLIENTS_CORS_ORIGINS:http://localhost:4200}
+
+# IBM i connection for CLIENTS_REPOSITORY=jt400. Supply via environment only; never commit values.
+ibmi:
+  host: ${IBMI_HOST:}
+  user: ${IBMI_USER:}
+  password: ${IBMI_PASSWORD:}
+  library: ${IBMI_LIBRARY:}
+  data-library: ${IBMI_DATA_LIBRARY:}
+  ccsid: ${IBMI_CCSID:37}
