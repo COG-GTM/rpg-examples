@@ -58,6 +58,26 @@ describe('ClientListComponent', () => {
     expect(el().textContent).toContain('No active clients.');
   });
 
+  it('keeps a delete failure visible after the list refresh', () => {
+    service.list.and.returnValues(of([make(12345678, 'JUAN PEREZ')]), of([]));
+    service.delete.and.returnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 410,
+            error: { status: 410, code: 'DELETED', detail: 'Client marked as deleted' },
+          }),
+      ),
+    );
+    fixture = TestBed.createComponent(ClientListComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.askDelete(make(12345678, 'JUAN PEREZ'));
+    fixture.componentInstance.confirmDelete();
+    fixture.detectChanges();
+    expect(service.list).toHaveBeenCalledTimes(2);
+    expect(el().querySelector('[role="alert"]')?.textContent?.trim()).toBe('Client marked as deleted');
+  });
+
   it('cancelling the confirm dialog does not delete', () => {
     service.list.and.returnValue(of([make(12345678, 'JUAN PEREZ')]));
     fixture = TestBed.createComponent(ClientListComponent);

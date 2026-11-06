@@ -4,13 +4,14 @@
 // matching proxy.conf.json. Usage: npm run build && npm run serve:dist
 // Env: PORT (default 4200), API_TARGET (default http://localhost:8080)
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { request } from 'node:http';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.PORT ?? 4200);
 const API_TARGET = new URL(process.env.API_TARGET ?? 'http://localhost:8080');
+const request = API_TARGET.protocol === 'https:' ? httpsRequest : httpRequest;
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../dist/web/browser');
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -31,7 +32,7 @@ function proxy(req, res) {
   const upstream = request(
     {
       hostname: API_TARGET.hostname,
-      port: API_TARGET.port || 80,
+      port: API_TARGET.port || (API_TARGET.protocol === 'https:' ? 443 : 80),
       method: req.method,
       path: req.url.replace(/^\/api/, '') || '/',
       headers: { ...req.headers, host: API_TARGET.host },
@@ -50,7 +51,13 @@ function proxy(req, res) {
 }
 
 function serveStatic(req, res) {
-  const path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  let path;
+  try {
+    path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  } catch {
+    res.writeHead(400).end();
+    return;
+  }
   let file = normalize(join(ROOT, path));
   if (!file.startsWith(ROOT) || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(ROOT, 'index.html'); // SPA fallback for router paths

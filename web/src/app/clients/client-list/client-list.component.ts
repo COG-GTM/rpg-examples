@@ -27,9 +27,12 @@ export class ClientListComponent implements OnInit {
     this.load();
   }
 
-  load(): void {
+  /** `keepError` preserves a delete failure across the refresh that follows it. */
+  load(keepError = false): void {
     this.loading.set(true);
-    this.error.set(null);
+    if (!keepError) {
+      this.error.set(null);
+    }
     this.clients$.list().subscribe({
       next: (clients) => {
         this.clients.set(clients);
@@ -68,7 +71,7 @@ export class ClientListComponent implements OnInit {
         this.deleting.set(false);
         this.pendingDelete.set(null);
         this.error.set(mapApiError(err).message);
-        this.load();
+        this.load(true);
       },
     });
   }

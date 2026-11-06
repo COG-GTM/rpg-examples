@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, input, signal } from '@angular/core';
+import { Component, OnChanges, inject, input, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 
 import { ApiError, mapApiError } from '../api-error';
 import { Client } from '../client.model';
@@ -15,7 +15,7 @@ import { FlashService } from '../flash.service';
   imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './client-form.component.html',
 })
-export class ClientFormComponent implements OnInit {
+export class ClientFormComponent implements OnChanges {
   private readonly service = inject(ClientService);
   private readonly router = inject(Router);
   private readonly flash = inject(FlashService);
@@ -42,15 +42,20 @@ export class ClientFormComponent implements OnInit {
     return this.dni() !== undefined;
   }
 
-  ngOnInit(): void {
+  private loadSub?: Subscription;
+
+  /** Angular reuses this component when only `:dni` changes, so reload on every change. */
+  ngOnChanges(): void {
+    this.loadSub?.unsubscribe();
+    this.banner.set(null);
     const dni = this.dni();
     if (dni === undefined) {
       return;
     }
-    this.form.controls.dni.setValue(dni);
+    this.form.reset({ dni, name: '' });
     this.form.controls.dni.disable();
     this.loading.set(true);
-    this.service.get(Number(dni)).subscribe({
+    this.loadSub = this.service.get(Number(dni)).subscribe({
       next: (client) => {
         this.form.controls.name.setValue(client.name);
         this.loading.set(false);
@@ -69,7 +74,7 @@ export class ClientFormComponent implements OnInit {
       return;
     }
     const { dni, name } = this.form.getRawValue();
-    const dniNumber = Number(dni.trim());
+    const dniNumber = Number((this.dni() ?? dni).trim());
     const trimmedName = name.trim();
     const request: Observable<Client> = this.isEdit
       ? this.service.update(dniNumber, trimmedName)

@@ -169,6 +169,20 @@ describe('ClientFormComponent', () => {
       expect(router.navigate).toHaveBeenCalledWith(['/clients', 12345678]);
     });
 
+    it('reloads and updates the new DNI when the route DNI changes on a reused component', () => {
+      const other: Client = { ...CLIENT, dni: 23456789, name: 'MARIA GOMEZ' };
+      service.get.and.returnValues(of(CLIENT), of(other));
+      service.update.and.returnValue(of(other));
+      setup('12345678');
+      fixture.componentRef.setInput('dni', '23456789');
+      fixture.detectChanges();
+      expect(service.get).toHaveBeenCalledWith(23456789);
+      expect(component.form.getRawValue()).toEqual({ dni: '23456789', name: 'MARIA GOMEZ' });
+      expect(component.form.controls.dni.disabled).toBeTrue();
+      component.submit();
+      expect(service.update).toHaveBeenCalledOnceWith(23456789, 'MARIA GOMEZ');
+    });
+
     it('shows DELETED on load as a banner', () => {
       service.get.and.returnValue(problemError(410, 'DELETED', 'Client marked as deleted'));
       setup('12345678');
