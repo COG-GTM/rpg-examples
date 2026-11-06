@@ -44,3 +44,18 @@ If you're using SEU, keep in mind that it does not behave well when you use full
 ### Report Generation
 
 1. TO DO
+
+## Client CRUD service program (CLIESRV)
+
+`CLIECRUD` (`rpg ile/subprocedures and functions/clients_crud.rpgle`) is a thin driver over the
+UI-agnostic service program `CLIESRV` (`cliesrv.rpgle`, interface in the `/copy` member
+`cliesrv_p.rpgle`, exports in `cliesrv.bnd`). The service never uses `DSPLY`: every outcome is
+returned in `cliesrv_status_t` (63 bytes: success, code, message) and the record in
+`cliesrv_client_t` (146 bytes).
+
+* Legacy mode: `CALL CLIECRUD PARM('R' 12345678)` - same console output as before.
+* Structured mode: `CALL CLIECRUD PARM(op dni name status client)` - no console output.
+  Codes: `OK`, `INVDNI`, `DUPDNI`, `NOTFND`, `DELETED`, `IOERR`, `INVOP`.
+
+Build with `cl ile/build_cliesrv.clle` (CRTRPGMOD, CRTSRVPGM, binding directory, CRTPGM).
+`sql-db2-examples/cliecrud_procedure.sql` exposes the structured mode as SQL procedure `CLIECRUD_SP`.
